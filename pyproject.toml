@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Publish, share, and run Python applications locally — no infrastructure to deploy."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "typer>=0.12",
     "pydantic>=2",
