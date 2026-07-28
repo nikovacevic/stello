@@ -9,7 +9,7 @@ and distributing those tools still requires infrastructure knowledge, usually in
 platform engineering team. However, many of these new tools do not require infrastructure to run. Running a
 local version of a financial model, dashboard, or prototype suffices for many teams.
 
-Stello aims to let builders build and users use -- all locally, without needing to solve infrastructure deployment.
+Stello aims to let teams build, share and use tools -- all locally, without needing to solve infrastructure deployment.
 
 ## Requirements
 
@@ -25,7 +25,8 @@ project: model # name of active project (corresponds to ~/.stello/projects/model
 ```
 
 On Linux and Mac the local configuration directory should be located within the user's home directory. It should
-be called `~/.stello`.
+be called `~/.stello`. The location can be overridden by setting the `STELLO_HOME` environment variable, which is
+useful for testing and for advanced users who want to relocate the config directory.
 
 Within each Stello project (i.e. `git` repository) there MUST be a `stello.yaml` file in the root directory.
 It lists the project's applications. Each application has:
@@ -54,6 +55,10 @@ applications:
     script: ./main.py
 ```
 
+Application names within a `stello.yaml` must be unique. If two or more applications share a name, Stello
+should reject the manifest with an error like "ambiguous application name: {n} applications share the name
+{name}" rather than guessing which one to run.
+
 An application's `args` must match the flags its `script` parses: Stello passes each declared arg to
 the script as a CLI flag (see `stello run`).
 
@@ -65,7 +70,9 @@ branches and tags should be supported, for things like `beta`, semantic versioni
 
 ## Commands
 
-Stello should support the following commands:
+Stello should support the following commands. Commands that require an active project (`list`, `run`, and
+`update` with no arguments) should, when no project is active, prompt the user to select an initialized
+project or to run `stello init`.
 
 ### `stello init <project_name> <remote_git_url>`
 
@@ -73,6 +80,10 @@ Should clones the `git` repo to the local stello directory under the given proje
 
 For example, `stello init model git@github.com:my-org/my-model.git` should clone the given `git` project into
 `~/.stello/projects/model`, and set `project: model` in `config.yaml`.
+
+Init should clone the remote's `main` branch explicitly and fail if the remote has no `main` branch. Project
+names must be unique: if a project with the given name already exists, init should error rather than overwrite
+it. Re-cloning the same remote under a different project name is allowed.
 
 ### `stello list projects`
 
@@ -86,11 +97,14 @@ given project name is valid.
 
 ### `stello update`
 
-Should run `git fetch && git pull` on the `git` repository for the active project.
+Should update the `git` repository for the active project to the latest `main`. Project
+checkouts are treated as read-only mirrors, so update should `git fetch` and then
+`git reset --hard origin/main` rather than `git pull` — this avoids merge conflicts if the
+local working tree has drifted (e.g. from running applications in place).
 
-`stello update --all` should fetch and pull updates for all projects.
+`stello update --all` should update all projects.
 
-`stello update <project_name>` should fetch and pull updates for the project of the given name.
+`stello update <project_name>` should update the project of the given name.
 
 ### `stello list`
 
@@ -114,6 +128,10 @@ name that doesn't match a declared arg is an error. Values are passed to the scr
 
 For example, given the `model` application above, `stello run model --set scenario=stress --set verbose=true` runs
 `uv run --directory ./apps/model ./src/model/main.py --scenario stress --verbose`.
+
+Stello uses a plain `uv run` (not `--frozen`), so applications run whether or not they commit a `uv.lock`. Any
+lockfile or virtualenv churn a run leaves in the checkout is disposable — `stello update` hard-resets to
+`origin/main`.
 
 ## Dependencies
 
