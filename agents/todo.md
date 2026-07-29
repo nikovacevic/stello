@@ -9,6 +9,9 @@ Planned work, not yet started. Move items into the code (and delete them here) a
   are children of the TUI, but on quit they should be gracefully terminated (and potentially
   force-killed if they don't stop) rather than left dangling. See `apps/stello-terminal/main.py`.
 
-- **TUI: update projects with a keystroke** — add a binding (e.g. `u`) that runs
-  `core.update_project` on the browsed project (and maybe a shortcut for `core.update_all`),
-  mirroring the stello web app's Update buttons. See `apps/stello-terminal/main.py`.
+- **EXAMPLES.md — end-to-end use-case walkthroughs** — add a top-level `EXAMPLES.md` that
+  steps through common workflows narratively, tying together `init`, ref-based development,
+  tag versioning, `run`, and `update`. Anchor example: a financial-services team of three that
+  needs to vibe-code, share, and run applications — how they initialize their project(s), how
+  they develop apps within them (feature branches), how they version them (tags), how they run
+  them, and how they update them.
