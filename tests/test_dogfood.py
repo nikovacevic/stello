@@ -15,11 +15,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_repo_root_manifest_is_valid():
     manifest = load_manifest(REPO_ROOT)
-    assert find_application(manifest, "tui") is not None
+    assert find_application(manifest, "stello") is not None
     assert find_application(manifest, "webui") is not None
 
 
-@pytest.mark.parametrize("name", ["tui", "webui"])
+@pytest.mark.parametrize("name", ["stello", "webui"])
 def test_app_paths_exist(name):
     app = find_application(load_manifest(REPO_ROOT), name)
     assert app.resolved_script(REPO_ROOT).is_file()
