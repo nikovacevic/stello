@@ -51,6 +51,27 @@ def test_require_missing_project_raises():
         projects.require_project("ghost")
 
 
+def test_remove_project_deletes_directory(make_origin):
+    path = projects.add_project("model", str(make_origin()))
+    assert projects.is_project("model")
+    removed = projects.remove_project("model")
+    assert removed == path
+    assert not path.exists()
+    assert projects.list_projects() == []
+
+
+def test_remove_unknown_project_raises(make_origin):
+    projects.add_project("model", str(make_origin()))
+    with pytest.raises(ProjectNotFoundError):
+        projects.remove_project("ghost")
+
+
+def test_remove_rejects_traversal_name(make_origin):
+    projects.add_project("model", str(make_origin()))
+    with pytest.raises(InvalidNameError):
+        projects.remove_project("../model")
+
+
 def test_invalid_name_rejected(make_origin):
     with pytest.raises(InvalidNameError):
         projects.add_project("../evil", str(make_origin()))

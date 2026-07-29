@@ -21,12 +21,12 @@ each, **applications** (runnable Python apps declared in `stello.yaml`).
 
 - **Home directory** — `~/.stello` on macOS and Linux. Stello owns this; the user is
   not expected to edit it by hand. It contains only:
-  - `projects/<name>/` — one git repo per project, cloned by `stello init`.
+  - `projects/<name>/` — one git repo per project, cloned by `stello install`.
 - **No global state** — stello is stateless. There is no active-project pointer and no
   `config.yaml`; every command names the project it acts on (`<project>/<app>`). The
   directory-layout logic lives in `stello.paths` (home dir, `projects/`, `STELLO_HOME`).
 - **Project git repo** — cloned from a remote the user supplies (checking out the remote's
-  default branch, or `stello init --ref <ref>` to start elsewhere; no particular branch
+  default branch, or `stello install --ref <ref>` to start elsewhere; no particular branch
   name is required). A project tracks a single **ref** — a branch, tag, or commit — held
   as git's own HEAD, so stello keeps no separate record of it:
   - **attached HEAD (a branch)** is *tracked* — a plain `stello update` advances it to
@@ -70,7 +70,8 @@ names it, and applications are addressed as `<project>/<app>`.
 
 | Command | Behavior |
 | --- | --- |
-| `stello init <project_name> <remote_git_url> [--ref <ref>]` | Clone the remote into `~/.stello/projects/<project_name>`, checking out its default branch (or `--ref`). |
+| `stello install <project_name> <remote_git_url> [--ref <ref>]` | Clone the remote into `~/.stello/projects/<project_name>`, checking out its default branch (or `--ref`). |
+| `stello remove <project_name> [--yes]` | Delete an initialized project's local clone. Prompts for confirmation unless `--yes`/`-y`. |
 | `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
 | `stello describe <project>` | Print the project's name, description, current ref, and each application's name and description. |
 | `stello describe <project>/<app>` | Print the application's name, description, the project's current ref, `dir`, `script`, and its args (name, description, type, default). |
@@ -82,7 +83,7 @@ names it, and applications are addressed as `<project>/<app>`.
 | `stello update --all` | Fetch and advance the current ref of every initialized project (no `--ref`). |
 
 The control panels are **ordinary apps, not commands**: run them with `stello run
-stello/terminal` and `stello run stello/dashboard` after `stello init`-ing the stello repo.
+stello/terminal` and `stello run stello/dashboard` after `stello install`-ing the stello repo.
 
 Keep command semantics aligned with `agents/product.md`; if you change behavior here,
 update that file too.

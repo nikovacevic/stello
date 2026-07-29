@@ -67,6 +67,11 @@ def add_project(name: str, remote_url: str, ref: str | None = None) -> ProjectIn
     return ProjectInfo(name, path, git.current_ref(path))
 
 
+def remove_project(name: str) -> None:
+    """Remove an initialized project, deleting its local clone from disk."""
+    projects.remove_project(name)
+
+
 def current_ref(name: str) -> str:
     """The ref project ``name`` is currently on (branch, tag, or short commit)."""
     return git.current_ref(projects.require_project(name))
