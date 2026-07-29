@@ -48,14 +48,15 @@ def test_is_git_repo(tmp_path, origin):
     assert git.is_git_repo(tmp_path / "does-not-exist") is False
 
 
-def test_clone_main(tmp_path, origin):
+def test_clone(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     assert git.is_git_repo(dest)
     assert (dest / "stello.yaml").exists()
 
 
-def test_clone_main_requires_main_branch(tmp_path):
+def test_clone_uses_remote_default_branch(tmp_path):
+    """A remote whose default branch isn't `main` clones onto that branch."""
     other = tmp_path / "other"
     other.mkdir()
     _git(other, "init", "-b", "trunk")
@@ -63,13 +64,14 @@ def test_clone_main_requires_main_branch(tmp_path):
     _git(other, "add", "-A")
     _git(other, "commit", "-m", "init")
 
-    with pytest.raises(GitError, match="main"):
-        git.clone_main(str(other), tmp_path / "clone")
+    dest = tmp_path / "clone"
+    git.clone(str(other), dest)
+    assert git.current_ref(dest) == "trunk"
 
 
 def test_advance_current_pulls_new_commits(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
 
     (origin / "new.txt").write_text("hello")
     _git(origin, "add", "-A")
@@ -82,7 +84,7 @@ def test_advance_current_pulls_new_commits(tmp_path, origin):
 
 def test_advance_current_discards_local_changes(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
 
     # Drift the working tree, as a running app might.
     (dest / "stello.yaml").write_text("applications: [tampered]\n")
@@ -91,15 +93,15 @@ def test_advance_current_discards_local_changes(tmp_path, origin):
     assert (dest / "stello.yaml").read_text() == "applications: []\n"
 
 
-def test_clone_main_checks_out_main(tmp_path, origin):
+def test_clone_checks_out_default_branch(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     assert git.current_ref(dest) == "main"
 
 
 def test_checkout_branch_is_attached_and_tracked(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     git.fetch_all(dest)
     git.checkout_ref(dest, "beta")
     assert git.current_ref(dest) == "beta"
@@ -118,7 +120,7 @@ def test_checkout_branch_is_attached_and_tracked(tmp_path, origin):
 
 def test_checkout_tag_is_a_detached_pin(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     git.fetch_all(dest)
     git.checkout_ref(dest, "v1.0.0")
     assert git.current_ref(dest) == "v1.0.0"
@@ -135,7 +137,7 @@ def test_checkout_tag_is_a_detached_pin(tmp_path, origin):
 
 def test_checkout_commit_is_detached(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     git.fetch_all(dest)
     sha = _rev(origin, "beta")  # an untagged commit
     git.checkout_ref(dest, sha)
@@ -144,7 +146,7 @@ def test_checkout_commit_is_detached(tmp_path, origin):
 
 def test_checkout_unknown_ref_raises(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     git.fetch_all(dest)
     with pytest.raises(RefNotFoundError, match="nope"):
         git.checkout_ref(dest, "nope")
@@ -152,14 +154,14 @@ def test_checkout_unknown_ref_raises(tmp_path, origin):
 
 def test_checkout_rejects_option_like_ref(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     with pytest.raises(RefNotFoundError, match="cannot start with"):
         git.checkout_ref(dest, "--force")
 
 
 def test_list_refs(tmp_path, origin):
     dest = tmp_path / "clone"
-    git.clone_main(str(origin), dest)
+    git.clone(str(origin), dest)
     branches, tags = git.list_refs(dest)
     assert branches == ["beta", "main"]
     assert tags == ["v1.0.0"]
@@ -168,4 +170,4 @@ def test_list_refs(tmp_path, origin):
 def test_git_missing_raises(monkeypatch, tmp_path):
     monkeypatch.setattr(git, "GIT", "git-does-not-exist-xyz")
     with pytest.raises(GitError, match="not installed"):
-        git.clone_main("whatever", tmp_path / "dest")
+        git.clone("whatever", tmp_path / "dest")

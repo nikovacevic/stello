@@ -36,11 +36,15 @@ def main(
 @app.command()
 def init(
     project_name: Annotated[str, typer.Argument(help="Name for the new local project.")],
-    remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone (must have a `main` branch).")],
+    remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone.")],
+    ref: Annotated[
+        Optional[str],
+        typer.Option("--ref", help="Start on this branch, tag, or commit instead of the default branch."),
+    ] = None,
 ) -> None:
     """Clone a remote git repo as a new project."""
-    core.add_project(project_name, remote_git_url)
-    typer.echo(f"Initialized project {project_name!r}.")
+    info = core.add_project(project_name, remote_git_url, ref=ref)
+    typer.echo(f"Initialized project {project_name!r} ({info.ref}).")
 
 
 @app.command()

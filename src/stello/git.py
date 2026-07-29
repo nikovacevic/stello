@@ -6,7 +6,7 @@ be interpreted as shell syntax.
 A project checkout tracks a single **ref** — a branch, tag, or commit — held as git's own
 HEAD. Stello keeps no separate record of it: an attached HEAD (a branch) is *tracked* and
 advances to the remote tip on update; a detached HEAD (a tag or commit) is a *pin* and
-stays put. ``main`` is the default a project starts on (see ``DEFAULT_BRANCH``).
+stays put. A fresh clone starts on the remote's default branch unless a ref is given.
 """
 
 from __future__ import annotations
@@ -17,10 +17,9 @@ from pathlib import Path
 from stello.errors import GitError, RefNotFoundError
 
 GIT = "git"
-DEFAULT_BRANCH = "main"
 
 # Fetch every remote branch into refs/remotes/origin/* (plus tags). Stated explicitly so it
-# holds even on legacy clones whose stored remote.origin.fetch only covers ``main``.
+# holds even on legacy clones whose stored remote.origin.fetch only covers one branch.
 _ALL_HEADS_REFSPEC = "+refs/heads/*:refs/remotes/origin/*"
 
 
@@ -52,23 +51,17 @@ def is_git_repo(path: Path) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
-def clone_main(remote_url: str, dest: Path) -> None:
-    """Clone ``remote_url`` into ``dest``, checking out its ``main`` branch.
+def clone(remote_url: str, dest: Path) -> None:
+    """Clone ``remote_url`` into ``dest``, checking out the remote's default branch.
 
-    Uses ``--branch main`` (but not ``--single-branch``), so all branches and tags come
-    down and are available to switch to later, while a remote without a ``main`` branch
-    still fails (an intentional requirement for now). Clone progress is streamed to the
+    A normal clone (no ``--single-branch``), so every branch and tag comes down and is
+    available to switch to later. The checked-out branch is whatever the remote's HEAD
+    points at, so no particular branch name is required. Clone progress is streamed to the
     terminal; git prints its own error details there on failure.
     """
-    result = _git(
-        "clone", "--branch", DEFAULT_BRANCH, remote_url, str(dest),
-        capture=False,
-    )
+    result = _git("clone", remote_url, str(dest), capture=False)
     if result.returncode != 0:
-        raise GitError(
-            f"Failed to clone {remote_url} (branch {DEFAULT_BRANCH!r}). Stello requires a "
-            f"remote with a `{DEFAULT_BRANCH}` branch."
-        )
+        raise GitError(f"Failed to clone {remote_url}.")
 
 
 def fetch_all(repo: Path) -> None:

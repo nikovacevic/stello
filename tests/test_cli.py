@@ -35,11 +35,19 @@ def test_init_and_lists(make_origin):
     origin = make_origin()
     result = runner.invoke(cli.app, ["init", "model", str(origin)])
     assert result.exit_code == 0, result.output
+    assert "Initialized project 'model' (main)." in result.output
 
     listed = runner.invoke(cli.app, ["projects"])
     assert listed.exit_code == 0, listed.output
     assert "model" in listed.output
     assert "*" not in listed.output  # no active marker anymore
+
+
+def test_init_at_ref(make_origin):
+    origin = make_origin(branch="beta", tag="v1.0.0")
+    result = runner.invoke(cli.app, ["init", "model", str(origin), "--ref", "v1.0.0"])
+    assert result.exit_code == 0, result.output
+    assert "Initialized project 'model' (v1.0.0)." in result.output
 
 
 def test_init_duplicate_errors(make_origin):

@@ -51,7 +51,7 @@ uv tool update-shell
 After `stello` is installed, the first step is to init a project:
 
 ```bash
-stello init <project> <git_remote_url|local_git_directory>
+stello init <project> <git_remote_url|local_git_directory> [--ref <branch|tag|commit>]
 ```
 
 The project simply needs a `stello.yaml` file at its root, which describes one or more applications:

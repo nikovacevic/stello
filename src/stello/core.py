@@ -61,9 +61,9 @@ def project_path(name: str) -> Path:
     return projects.require_project(name)
 
 
-def add_project(name: str, remote_url: str) -> ProjectInfo:
-    """Clone ``remote_url`` as project ``name``."""
-    path = projects.add_project(name, remote_url)
+def add_project(name: str, remote_url: str, ref: str | None = None) -> ProjectInfo:
+    """Clone ``remote_url`` as project ``name`` (on ``ref`` if given, else the default branch)."""
+    path = projects.add_project(name, remote_url, ref=ref)
     return ProjectInfo(name, path, git.current_ref(path))
 
 

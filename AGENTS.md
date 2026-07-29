@@ -25,9 +25,10 @@ each, **applications** (runnable Python apps declared in `stello.yaml`).
 - **No global state** — stello is stateless. There is no active-project pointer and no
   `config.yaml`; every command names the project it acts on (`<project>/<app>`). The
   directory-layout logic lives in `stello.paths` (home dir, `projects/`, `STELLO_HOME`).
-- **Project git repo** — cloned from a remote the user supplies (checking out `main`; a
-  remote without `main` is rejected). A project tracks a single **ref** — a branch, tag,
-  or commit — held as git's own HEAD, so stello keeps no separate record of it:
+- **Project git repo** — cloned from a remote the user supplies (checking out the remote's
+  default branch, or `stello init --ref <ref>` to start elsewhere; no particular branch
+  name is required). A project tracks a single **ref** — a branch, tag, or commit — held
+  as git's own HEAD, so stello keeps no separate record of it:
   - **attached HEAD (a branch)** is *tracked* — a plain `stello update` advances it to
     the remote tip.
   - **detached HEAD (a tag or commit)** is a *pin* — a plain `stello update` still fetches
@@ -65,7 +66,7 @@ names it, and applications are addressed as `<project>/<app>`.
 
 | Command | Behavior |
 | --- | --- |
-| `stello init <project_name> <remote_git_url>` | Clone the remote (checking out `main`) into `~/.stello/projects/<project_name>`. |
+| `stello init <project_name> <remote_git_url> [--ref <ref>]` | Clone the remote into `~/.stello/projects/<project_name>`, checking out its default branch (or `--ref`). |
 | `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
 | `stello run <project>/<app> [--set NAME=VALUE ...]` | Look up `<app>` in `<project>`'s `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. A ref without exactly one `/` is an error. |
 | `stello projects` | List initialized projects, each annotated with the ref it's on: `<project> [<ref>]`. |
