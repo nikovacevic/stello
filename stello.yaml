@@ -1,6 +1,6 @@
 applications:
-  - name: tui
-    dir: ./apps/tui
+  - name: stello
+    dir: ./apps/stello
     script: ./main.py
     args:
       - name: theme
