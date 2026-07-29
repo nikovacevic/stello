@@ -33,7 +33,7 @@ import os
 from functools import partial
 from pathlib import Path
 
-from nicegui import run as ng_run, ui
+from nicegui import app, run as ng_run, ui
 
 from stello import __version__, core
 from stello.models import Application, ArgType
@@ -645,9 +645,11 @@ body { background:var(--canvas); color:var(--fg); }
 .q-menu .q-item { min-height:32px; font-size:.85rem; color:var(--fg); }
 .q-menu .q-item:hover { background:var(--btn-hover); }
 
-/* theme toggle */
-.theme-toggle.q-btn-group { box-shadow:none; border:1px solid var(--btn-border); border-radius:6px; }
-.theme-toggle .q-btn { text-transform:none; font-size:.8rem; padding:3px 12px; min-height:0; }
+/* header icon buttons (theme, close) */
+.header-actions { display:flex; align-items:center; gap:2px; }
+.icon-btn.q-btn { color:var(--muted) !important; background:transparent !important;
+                  border-radius:6px; min-height:0; padding:6px; }
+.icon-btn.q-btn:hover { background:var(--btn-hover) !important; color:var(--fg) !important; }
 
 /* dialog */
 .dialog-card { background:var(--card); color:var(--fg); border:1px solid var(--border);
@@ -683,11 +685,13 @@ def build() -> None:
                 ui.label("stello").classes("brand-name")
                 ui.label(f"v{__version__}").classes("brand-ver")
             ui.element("div").classes("spacer")
-            ui.toggle(
-                {"light": "Light", "dark": "Dark"},
-                value="dark" if state["dark"] else "light",
-                on_change=_on_theme,
-            ).props("no-caps unelevated dense").classes("theme-toggle")
+            with ui.element("div").classes("header-actions"):
+                refs["theme_btn"] = ui.button(icon=_theme_icon(), on_click=_toggle_theme).props(
+                    "flat dense"
+                ).classes("icon-btn").tooltip("Toggle light / dark theme")
+                ui.button(icon="close", on_click=_close_app).props(
+                    "flat dense"
+                ).classes("icon-btn").tooltip("Shut down stello and close this tab")
 
         with ui.element("div").classes("content w-full"):
             projects_panel()
@@ -700,12 +704,38 @@ def build() -> None:
     ui.timer(0.6, _tick)
 
 
-def _on_theme(e) -> None:
-    dark = e.value == "dark"
+def _theme_icon() -> str:
+    """The icon reflecting the current theme: a moon in dark mode, a sun in light."""
+    return "dark_mode" if state["dark"] else "light_mode"
+
+
+def _toggle_theme() -> None:
+    dark = not state["dark"]
     state["dark"] = dark
     dm = refs.get("dark")
     if dm is not None:
         dm.enable() if dark else dm.disable()
+    btn = refs.get("theme_btn")
+    if btn is not None:
+        btn.props(f"icon={_theme_icon()}")
+
+
+async def _close_app() -> None:
+    """Gracefully shut the server down and close the browser tab."""
+    ui.notify("Shutting down stello…")
+    try:
+        # Ask the tab to close; if the browser blocks that (tabs it didn't open), leave a
+        # message. The tab may close before responding, so tolerate a timeout.
+        await ui.run_javascript(
+            "try { window.close(); } catch (e) {}\n"
+            "setTimeout(function(){ document.body.innerHTML ="
+            " '<div style=\"font-family:sans-serif;padding:48px;color:#8b949e\">"
+            "stello has shut down — you can close this tab.</div>'; }, 100);",
+            timeout=0.6,
+        )
+    except Exception:  # noqa: BLE001 - shut down regardless of the tab's response
+        pass
+    app.shutdown()
 
 
 def _init() -> None:
