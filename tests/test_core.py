@@ -103,6 +103,30 @@ def test_launched_process_captures_output():
     assert proc.is_running() is False
 
 
+def test_launched_process_streams_before_exit():
+    """Output must surface while the child runs, not only once it exits.
+
+    A child whose stdout is a pipe would block-buffer its output without
+    PYTHONUNBUFFERED, so a line printed (without an explicit flush) before a long
+    sleep would not appear until exit — the live-log bug this guards against.
+    """
+    import sys
+    import time
+
+    proc = core.LaunchedProcess(
+        "t", [sys.executable, "-c", "print('early'); import time; time.sleep(30)"]
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and "early" not in proc.lines():
+            time.sleep(0.05)
+        assert proc.lines() == ["early"]
+        assert proc.is_running() is True
+    finally:
+        proc.stop()
+        proc.wait(timeout=10)
+
+
 def test_update_all_returns_names(make_origin):
     core.add_project("a", str(make_origin()))
     core.add_project("b", str(make_origin(name="o2")))

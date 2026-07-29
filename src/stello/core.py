@@ -136,12 +136,18 @@ class LaunchedProcess:
 
     def __init__(self, label: str, cmd: Sequence[str]) -> None:
         self.label = label
+        # A child whose stdout is a pipe (not a TTY) defaults to block buffering, so its
+        # output wouldn't surface until the buffer fills or it exits — making the live log
+        # appear only once the app stops. PYTHONUNBUFFERED forces the child to flush each
+        # line as it's written, so a supervising UI can stream output in real time.
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
         self._proc = subprocess.Popen(
             list(cmd),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            env=env,
         )
         self._lines: list[str] = []
         self._lock = threading.Lock()

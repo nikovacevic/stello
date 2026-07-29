@@ -12,6 +12,3 @@ Planned work, not yet started. Move items into the code (and delete them here) a
 - **TUI: update projects with a keystroke** — add a binding (e.g. `u`) that runs
   `core.update_project` on the browsed project (and maybe a shortcut for `core.update_all`),
   mirroring the stello web app's Update buttons. See `apps/stello-terminal/main.py`.
-
-- **Stello web app: rework the UI** — `apps/stello-dashboard/main.py` is functional but spare and
-  clunky. Improve the layout, visual hierarchy, and interaction feel.

@@ -60,12 +60,11 @@ names it, and applications are addressed as `<project>/<app>`.
 | Command | Behavior |
 | --- | --- |
 | `stello init <project_name> <remote_git_url>` | Clone the remote's `main` into `~/.stello/projects/<project_name>`. |
+| `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
+| `stello run <project>/<app> [--set NAME=VALUE ...]` | Look up `<app>` in `<project>`'s `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. A ref without exactly one `/` is an error. |
 | `stello projects` | List initialized projects (dirs under `~/.stello/projects` that are valid git repos). |
 | `stello update <project_name>` | Update the named project to `origin/main` (`git fetch` + `reset --hard`). |
 | `stello update --all` | Same, for every initialized project. |
-| `stello update` (no target) | Error — there is no active project to default to. `--all` and a project name together is also an error. |
-| `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
-| `stello run <project>/<app> [--set NAME=VALUE ...]` | Look up `<app>` in `<project>`'s `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. A ref without exactly one `/` is an error. |
 
 The control panels are **ordinary apps, not commands**: run them with `stello run
 stello/terminal` and `stello run stello/dashboard` after `stello init`-ing the stello repo.
