@@ -7,13 +7,13 @@ apps from a single command line, entirely on the local machine.
 
 ## Status
 
-Very early alpha — but it works! You can install stello, initialize projects, and run
-applications. Expect rough edges and breaking changes.
+Very early alpha — but it works! You can install stello, initialize and upgrade projects,
+and run applications. Expect rough edges and breaking changes.
 
 ## Getting started
 
-Stello needs [`git`](https://git-scm.com/) and [`uv`](https://docs.astral.sh/uv/) on your
-PATH. With those in place, install stello from git:
+Stello requires [`git`](https://git-scm.com/) and [`uv`](https://docs.astral.sh/uv/) to be
+installed on your PATH. With those in place, install stello using `uv` and `git`:
 
 ```bash
 uv tool install git+https://github.com/nikovacevic/stello.git
@@ -57,21 +57,26 @@ stello init <project> <git_remote_url|local_git_directory> [--ref <branch|tag|co
 The project simply needs a `stello.yaml` file at its root, which describes one or more applications:
 
 ```yaml
-  applications:
-    - name: model
-      dir: ./apps/model            # uv project root
-      script: ./src/model/main.py  # entrypoint, relative to dir
-      args:
-        - name: scenario
-          type: string
-          default: base
-        - name: verbose
-          type: bool
-          default: false
-    - name: webapp
-      dir: ./apps/ui
-      script: ./main.py
+description: The team's shared models.   # optional
+applications:
+  - name: model
+    description: Forecasts revenue.       # optional
+    dir: ./apps/model            # uv project root
+    script: ./src/model/main.py  # entrypoint, relative to dir
+    args:
+      - name: scenario
+        description: Which scenario to run.  # optional
+        type: string
+        default: base
+      - name: verbose
+        type: bool
+        default: false
+  - name: webapp
+    dir: ./apps/ui
+    script: ./main.py
 ```
+
+Descriptions are optional at every level and are surfaced by `stello describe`.
 
 From there, you can list apps and run one:
 
@@ -120,6 +125,7 @@ Enjoy the control planes. But as a reminder, everything the panels do (and more)
 ```bash
 stello projects                    # list projects and the ref each is on
 stello apps                        # list every app, as <project>/<app>
+stello describe stello             # describe a project (or an app: <project>/<app>)
 stello refs stello                 # list a project's branches and tags
 stello update stello               # fetch and update one project (stays on its ref)
 stello update stello --ref v1.2.0  # switch a project to a branch, tag, or commit

@@ -1,21 +1,28 @@
+description: Stello itself — the CLI library plus its two control planes, runnable as a project.
 applications:
   - name: terminal
+    description: A Textual TUI control panel for browsing, running, and updating projects.
     dir: ./apps/stello-terminal
     script: ./main.py
     args:
       - name: theme
+        description: Color theme — dark or light.
         type: string
         default: dark
       - name: compact
+        description: Use denser tables.
         type: bool
         default: false
   - name: dashboard
+    description: A NiceGUI web control panel for browsing, running, and updating projects.
     dir: ./apps/stello-dashboard
     script: ./main.py
     args:
       - name: port
+        description: Port to serve the web UI on.
         type: int
         default: 8080
       - name: theme
+        description: Color theme — dark or light.
         type: string
         default: dark

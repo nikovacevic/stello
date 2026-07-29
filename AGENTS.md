@@ -37,18 +37,22 @@ each, **applications** (runnable Python apps declared in `stello.yaml`).
   `stello update <project> --ref <ref>` switches to any branch, tag, or commit; a switched
   branch is attached, a tag/commit is detached. All the ref logic lives in `stello.git`.
 - **`stello.yaml`** — MUST exist at the root of every project repo. It lists the
-  applications in that project. Each application has a `name`, a `dir` (the uv project
-  root, relative to the repo root — sets the working dir and where uv resolves deps), a
-  `script` (entrypoint, relative to `dir`), and an optional `args` list. Each arg has a
-  `name`, a `type` (`string` (default), `int`, or `bool`), and a `default`. Application
-  names within a manifest must be unique.
+  applications in that project, and may carry an optional top-level `description`. Each
+  application has a `name`, an optional `description`, a `dir` (the uv project root, relative
+  to the repo root — sets the working dir and where uv resolves deps), a `script` (entrypoint,
+  relative to `dir`), and an optional `args` list. Each arg has a `name`, an optional
+  `description`, a `type` (`string` (default), `int`, or `bool`), and a `default`. Descriptions
+  are surfaced by `stello describe`. Application names within a manifest must be unique.
   ```yaml
+  description: The team's shared models.   # optional
   applications:
     - name: model
+      description: Forecasts revenue.       # optional
       dir: ./apps/model            # uv project root
       script: ./src/model/main.py  # entrypoint, relative to dir
       args:
         - name: scenario
+          description: Which scenario to run.  # optional
           type: string
           default: base
         - name: verbose
@@ -68,6 +72,8 @@ names it, and applications are addressed as `<project>/<app>`.
 | --- | --- |
 | `stello init <project_name> <remote_git_url> [--ref <ref>]` | Clone the remote into `~/.stello/projects/<project_name>`, checking out its default branch (or `--ref`). |
 | `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
+| `stello describe <project>` | Print the project's name, description, current ref, and each application's name and description. |
+| `stello describe <project>/<app>` | Print the application's name, description, the project's current ref, `dir`, `script`, and its args (name, description, type, default). |
 | `stello run <project>/<app> [--set NAME=VALUE ...]` | Look up `<app>` in `<project>`'s `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. A ref without exactly one `/` is an error. |
 | `stello projects` | List initialized projects, each annotated with the ref it's on: `<project> [<ref>]`. |
 | `stello refs <project_name>` | List the branches and tags available on the project's remote (`git ls-remote`), marking the current one with `*`. |

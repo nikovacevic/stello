@@ -50,6 +50,49 @@ def test_valid_manifest_parses_and_coerces(tmp_path):
     assert find_application(manifest, "missing") is None
 
 
+def test_descriptions_parse_at_all_levels(tmp_path):
+    repo = write_manifest(
+        tmp_path,
+        """
+        description: The team's shared models.
+        applications:
+          - name: model
+            description: Forecasts revenue.
+            dir: ./apps/model
+            script: ./main.py
+            args:
+              - name: scenario
+                description: Which scenario to run.
+                default: base
+        """,
+    )
+    manifest = load_manifest(repo)
+    assert manifest.description == "The team's shared models."
+    app = find_application(manifest, "model")
+    assert app.description == "Forecasts revenue."
+    assert app.args[0].description == "Which scenario to run."
+
+
+def test_descriptions_are_optional(tmp_path):
+    repo = write_manifest(
+        tmp_path,
+        """
+        applications:
+          - name: model
+            dir: ./apps/model
+            script: ./main.py
+            args:
+              - name: scenario
+                default: base
+        """,
+    )
+    manifest = load_manifest(repo)
+    assert manifest.description is None
+    app = find_application(manifest, "model")
+    assert app.description is None
+    assert app.args[0].description is None
+
+
 def test_type_defaults_to_string(tmp_path):
     repo = write_manifest(
         tmp_path,

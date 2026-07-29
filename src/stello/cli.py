@@ -8,6 +8,7 @@ import typer
 
 from stello import __version__, core, run as run_ops
 from stello.errors import ArgumentError, StelloError
+from stello.models import Application, Arg, Manifest
 
 app = typer.Typer(
     name="stello",
@@ -113,6 +114,61 @@ def apps() -> None:
         return
     for project, application in pairs:
         typer.echo(f"{project}/{application.name}")
+
+
+def _description(text: str | None) -> str:
+    return text if text else "(no description)"
+
+
+def _default(arg: Arg) -> str:
+    # Show booleans as lowercase to match how they read in stello.yaml.
+    if isinstance(arg.default, bool):
+        return "true" if arg.default else "false"
+    return str(arg.default)
+
+
+def _echo_project(name: str, ref: str, manifest: Manifest) -> None:
+    typer.echo(f"{name} [{ref}]")
+    typer.echo(_description(manifest.description))
+    typer.echo("")
+    typer.echo("Applications:")
+    if not manifest.applications:
+        typer.echo("  (none)")
+        return
+    for application in manifest.applications:
+        typer.echo(f"  {application.name} — {_description(application.description)}")
+
+
+def _echo_app(project: str, ref: str, application: Application) -> None:
+    typer.echo(f"{application.name} — in {project} [{ref}]")
+    typer.echo(_description(application.description))
+    typer.echo("")
+    typer.echo(f"dir:    {application.dir}")
+    typer.echo(f"script: {application.script}")
+    typer.echo("")
+    typer.echo("Arguments:")
+    if not application.args:
+        typer.echo("  (none)")
+        return
+    for arg in application.args:
+        typer.echo(f"  {arg.name} ({arg.type.value}, default: {_default(arg)}) — {_description(arg.description)}")
+
+
+@app.command()
+def describe(
+    target: Annotated[
+        str,
+        typer.Argument(metavar="PROJECT[/APP]", help="A project, or an application as `<project>/<app>`."),
+    ],
+) -> None:
+    """Describe a project, or an application within it."""
+    if "/" in target:
+        project, app_name = run_ops.parse_app_ref(target)
+        ref, application = core.describe_app(project, app_name)
+        _echo_app(project, ref, application)
+    else:
+        ref, manifest = core.describe_project(target)
+        _echo_project(target, ref, manifest)
 
 
 @app.command()
