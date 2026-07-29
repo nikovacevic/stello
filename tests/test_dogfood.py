@@ -16,10 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_repo_root_manifest_is_valid():
     manifest = load_manifest(REPO_ROOT)
     names = {a.name for a in manifest.applications}
-    assert {"stello", "control-plane"} <= names
+    assert {"stello", "control-plane", "weather"} <= names
 
 
-@pytest.mark.parametrize("name", ["stello", "control-plane"])
+@pytest.mark.parametrize("name", ["stello", "control-plane", "weather"])
 def test_app_paths_exist(name):
     app = find_application(load_manifest(REPO_ROOT), name)
     assert app.resolved_script(REPO_ROOT).is_file()
