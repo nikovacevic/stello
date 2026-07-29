@@ -19,15 +19,12 @@ The goal: builders build, users use, all locally.
 Stello has two levels of nesting: **projects** (git repos stello manages) and, inside
 each, **applications** (runnable Python apps declared in `stello.yaml`).
 
-- **Config directory** — `~/.stello` on macOS and Linux. Stello owns this; the user is
-  not expected to edit it by hand. It contains:
+- **Home directory** — `~/.stello` on macOS and Linux. Stello owns this; the user is
+  not expected to edit it by hand. It contains only:
   - `projects/<name>/` — one git repo per project, cloned by `stello init`.
-  - a top-level config file naming the **active project** (see below).
-- **Active-project config** — a single YAML file at the root of `~/.stello` that records
-  which project is active:
-  ```yaml
-  project: model  # active project → ~/.stello/projects/model (a git repo)
-  ```
+- **No global state** — stello is stateless. There is no active-project pointer and no
+  `config.yaml`; every command names the project it acts on (`<project>/<app>`). The
+  directory-layout logic lives in `stello.paths` (home dir, `projects/`, `STELLO_HOME`).
 - **Project git repo** — cloned from a remote the user supplies. Today it works from a
   single branch, `main`, only. Branches and tags (e.g. `beta`, semantic versions) are a
   future concern — don't build for them yet, but don't design in a way that forecloses
@@ -57,21 +54,21 @@ each, **applications** (runnable Python apps declared in `stello.yaml`).
 
 ## Commands
 
-Most commands act on the **active project** (from the config file); a few operate across
-or select projects.
+Stello is **stateless** — there is no active project. Every command that acts on a project
+names it, and applications are addressed as `<project>/<app>`.
 
 | Command | Behavior |
 | --- | --- |
-| `stello init <project_name> <remote_git_url>` | Clone the remote's `main` into `~/.stello/projects/<project_name>` and set it active. |
-| `stello projects` | List initialized projects (dirs under `~/.stello/projects` that are valid git repos), marking the active one with `*`. |
-| `stello open <project_name>` | If `<project_name>` is a valid initialized project, set it active in the config file. |
-| `stello update` | Update the **active** project to `origin/main` (`git fetch` + `reset --hard`). |
-| `stello update <project_name>` | Same, for the named project. |
+| `stello init <project_name> <remote_git_url>` | Clone the remote's `main` into `~/.stello/projects/<project_name>`. |
+| `stello projects` | List initialized projects (dirs under `~/.stello/projects` that are valid git repos). |
+| `stello update <project_name>` | Update the named project to `origin/main` (`git fetch` + `reset --hard`). |
 | `stello update --all` | Same, for every initialized project. |
-| `stello apps` | Read the active project's `stello.yaml` and report the runnable application names. |
-| `stello run <application_name> [--set NAME=VALUE ...]` | Look up the application in the active project's `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. |
-| `stello terminal [--theme ...] [--compact]` | Launch stello's built-in Textual TUI control panel in-process. No active project required; needs the `terminal` extra. |
-| `stello dashboard [--port ...] [--theme ...]` | Launch stello's built-in NiceGUI web dashboard in-process. No active project required; needs the `dashboard` extra. |
+| `stello update` (no target) | Error — there is no active project to default to. `--all` and a project name together is also an error. |
+| `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
+| `stello run <project>/<app> [--set NAME=VALUE ...]` | Look up `<app>` in `<project>`'s `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. A ref without exactly one `/` is an error. |
+
+The control panels are **ordinary apps, not commands**: run them with `stello run
+stello/terminal` and `stello run stello/dashboard` after `stello init`-ing the stello repo.
 
 Keep command semantics aligned with `agents/product.md`; if you change behavior here,
 update that file too.
@@ -81,14 +78,13 @@ update that file too.
 - **Language / packaging:** Python, managed with **`uv`**. Stello is itself a uv-managed
   project and is distributed so it can be run via uv (e.g. `uvx`).
 - **CLI framework:** **Typer** — use its type-hint-driven command definitions for the
-  `init` / `projects` / `open` / `update` / `apps` / `run` commands.
+  `init` / `projects` / `update` / `apps` / `run` commands.
 - **Dependencies:** keep stello's own footprint small. Its only required *external*
   tools are `git` and `uv`, which it invokes as subprocesses. Each application in the
-  remote repo carries its own dependencies, resolved by uv at run time. The built-in
-  `terminal` / `dashboard` panels ship in the package (`stello._apps`), but their heavy UI
-  deps (Textual, NiceGUI) are **optional extras** — `stello[terminal]`, `stello[dashboard]`
-  — so the base install stays lean. Those same modules also back the dogfood `terminal` /
-  `stello` apps under `apps/`, which are thin shims that import from `stello._apps`.
+  remote repo carries its own dependencies, resolved by uv at run time. The `terminal` /
+  `dashboard` control panels are **ordinary stello apps** under `apps/`, not built-in
+  commands — their heavy UI deps (Textual, NiceGUI) live in each app's own project, so
+  they never touch the base `stello` install. The `stello` package ships no UI code.
 - **Python version:** `requires-python` is floor-only (`>=3.11`) — do **not** add an upper
   cap preemptively; add `<3.X` only reactively if a real incompatibility (e.g. a lagging
   `pydantic-core` wheel) appears on a newer interpreter. `.python-version` pins a stable
@@ -102,9 +98,9 @@ update that file too.
 - Invoke `git` and `uv` as subprocesses; surface their errors clearly rather than
   swallowing them. A user without `git` or `uv` installed should get an actionable
   message.
-- Never assume the config dir or a project exists — create `~/.stello` (and its
-  `projects/` subdir) as needed. Fail gracefully when no project is initialized, when
-  the config file names a project that doesn't exist, or when no project is active.
+- Never assume the home dir or a project exists — create `~/.stello` (and its
+  `projects/` subdir) as needed. Fail gracefully when no project is initialized or when a
+  command names a project that doesn't exist.
 - Validate that a `projects/<name>` directory is a real git repo before treating it as a
   project (this is exactly what `stello projects` filters on).
 - A project repo is only usable if it has a `stello.yaml` at its root — treat a missing

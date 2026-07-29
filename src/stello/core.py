@@ -1,8 +1,11 @@
 """Stello's UI-agnostic service layer.
 
-One place that orchestrates the lower-level modules (``config``, ``projects``, ``git``,
-``manifest``, ``run``, ``uv``) into the operations a *front end* performs: browse projects,
-switch the active one, list and launch applications, and update projects.
+One place that orchestrates the lower-level modules (``projects``, ``git``, ``manifest``,
+``run``, ``uv``) into the operations a *front end* performs: browse projects, list and
+launch applications, and update projects.
+
+Stello is stateless: there is no active project. Every operation names the project it acts
+on, so the same call always means the same thing.
 
 Everything here is headless — it returns data or raises ``StelloError``; it never prints,
 prompts, or otherwise assumes a particular UI. The CLI, the TUI, and the web control plane
@@ -18,33 +21,26 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from stello import config, git, projects, run, uv
-from stello.errors import ApplicationNotFoundError
+from stello import git, projects, run, uv
+from stello.errors import ApplicationNotFoundError, ManifestError
 from stello.manifest import find_application, load_manifest
 from stello.models import Application
 
 
 @dataclass(frozen=True)
 class ProjectInfo:
-    """A project and whether it is the active one."""
+    """An initialized project and where it lives on disk."""
 
     name: str
     path: Path
-    is_active: bool
 
 
 # --- projects -------------------------------------------------------------
 
-def active_project() -> str | None:
-    """Name of the active project, or ``None``."""
-    return config.active_project()
-
-
 def list_projects() -> list[ProjectInfo]:
-    """All initialized projects, each flagged with whether it is active."""
-    active = config.active_project()
+    """All initialized projects, sorted by name."""
     return [
-        ProjectInfo(name, projects.project_path(name), name == active)
+        ProjectInfo(name, projects.project_path(name))
         for name in projects.list_projects()
     ]
 
@@ -54,18 +50,10 @@ def project_path(name: str) -> Path:
     return projects.require_project(name)
 
 
-def set_active(name: str) -> None:
-    """Make ``name`` the active project (validates it exists first)."""
-    projects.require_project(name)
-    config.set_active_project(name)
-
-
-def add_project(name: str, remote_url: str, *, activate: bool = True) -> ProjectInfo:
-    """Clone ``remote_url`` as project ``name``, optionally making it active."""
+def add_project(name: str, remote_url: str) -> ProjectInfo:
+    """Clone ``remote_url`` as project ``name``."""
     path = projects.add_project(name, remote_url)
-    if activate:
-        config.set_active_project(name)
-    return ProjectInfo(name, path, activate)
+    return ProjectInfo(name, path)
 
 
 # --- applications ---------------------------------------------------------
@@ -73,6 +61,22 @@ def add_project(name: str, remote_url: str, *, activate: bool = True) -> Project
 def apps_for(project: str) -> list[Application]:
     """Applications declared in ``project``'s stello.yaml."""
     return load_manifest(projects.require_project(project)).applications
+
+
+def list_all_apps() -> list[tuple[str, Application]]:
+    """Every application across all projects, as ``(project, application)`` pairs.
+
+    A project whose ``stello.yaml`` is missing or malformed is skipped rather than aborting
+    the whole listing; callers that care can re-load that project to surface the error.
+    """
+    pairs: list[tuple[str, Application]] = []
+    for name in projects.list_projects():
+        try:
+            apps = load_manifest(projects.project_path(name)).applications
+        except ManifestError:
+            continue
+        pairs.extend((name, app) for app in apps)
+    return pairs
 
 
 def find_app(project: str, app_name: str) -> Application:

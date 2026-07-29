@@ -10,6 +10,6 @@ dependencies = [
 
 [tool.uv.sources]
 # Resolves to the project repo root. When this project is cloned into
-# ~/.stello/projects/stello and run via `stello run terminal`, `../..` points at
+# ~/.stello/projects/stello and run via `stello run stello/terminal`, `../..` points at
 # that clone's root — so the terminal app builds stello from the clone, not a dev checkout.
 stello = { path = "../..", editable = true }

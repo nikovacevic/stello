@@ -1,15 +1,14 @@
 import pytest
 from typer.testing import CliRunner
 
-from stello import cli, config, uv
+from stello import cli, paths, uv
 from stello.errors import (
     ApplicationNotFoundError,
-    NoActiveProjectError,
+    ArgumentError,
     ProjectExistsError,
     ProjectNotFoundError,
     StelloError,
 )
-from stello.models import Config
 
 runner = CliRunner()
 
@@ -29,17 +28,18 @@ applications:
 
 @pytest.fixture(autouse=True)
 def home(tmp_path, monkeypatch):
-    monkeypatch.setenv(config.HOME_ENV_VAR, str(tmp_path / "home"))
+    monkeypatch.setenv(paths.HOME_ENV_VAR, str(tmp_path / "home"))
 
 
-def test_init_activates_and_lists(make_origin):
+def test_init_and_lists(make_origin):
     origin = make_origin()
     result = runner.invoke(cli.app, ["init", "model", str(origin)])
     assert result.exit_code == 0, result.output
-    assert config.active_project() == "model"
 
     listed = runner.invoke(cli.app, ["projects"])
-    assert "* model" in listed.output  # active project marked
+    assert listed.exit_code == 0, listed.output
+    assert "model" in listed.output
+    assert "*" not in listed.output  # no active marker anymore
 
 
 def test_init_duplicate_errors(make_origin):
@@ -50,17 +50,11 @@ def test_init_duplicate_errors(make_origin):
     assert isinstance(result.exception, ProjectExistsError)
 
 
-def test_open_invalid_errors():
-    result = runner.invoke(cli.app, ["open", "ghost"])
-    assert result.exit_code != 0
-    assert isinstance(result.exception, ProjectNotFoundError)
-
-
-def test_list_applications(make_origin):
+def test_apps_lists_project_slash_app(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
     result = runner.invoke(cli.app, ["apps"])
     assert result.exit_code == 0, result.output
-    assert "hello" in result.output
+    assert "model/hello" in result.output
 
 
 def test_run_invokes_uv_with_resolved_args(make_origin, monkeypatch):
@@ -73,7 +67,7 @@ def test_run_invokes_uv_with_resolved_args(make_origin, monkeypatch):
     monkeypatch.setattr(uv, "run_app", fake_run)
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
 
-    result = runner.invoke(cli.app, ["run", "hello", "--set", "name=stello", "--set", "loud=true"])
+    result = runner.invoke(cli.app, ["run", "model/hello", "--set", "name=stello", "--set", "loud=true"])
     assert result.exit_code == 0, (result.output, result.exception)
     assert captured["script"] == "./main.py"
     assert captured["args"] == ["--name", "stello", "--loud"]
@@ -83,37 +77,59 @@ def test_run_invokes_uv_with_resolved_args(make_origin, monkeypatch):
 def test_run_propagates_exit_code(make_origin, monkeypatch):
     monkeypatch.setattr(uv, "run_app", lambda directory, script, args: 7)
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
-    result = runner.invoke(cli.app, ["run", "hello"])
+    result = runner.invoke(cli.app, ["run", "model/hello"])
     assert result.exit_code == 7
+
+
+def test_run_requires_project_slash_app(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
+    result = runner.invoke(cli.app, ["run", "hello"])  # missing project
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ArgumentError)
 
 
 def test_run_unknown_application_errors(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
-    result = runner.invoke(cli.app, ["run", "ghost"])
+    result = runner.invoke(cli.app, ["run", "model/ghost"])
     assert result.exit_code != 0
     assert isinstance(result.exception, ApplicationNotFoundError)
 
 
-def test_no_active_project_prompt_selects(make_origin):
+def test_run_unknown_project_errors(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
-    config.save_config(Config(project=None))  # clear the active pointer
-
-    result = runner.invoke(cli.app, ["apps"], input="model\n")
-    assert result.exit_code == 0, (result.output, result.exception)
-    assert "hello" in result.output
-    assert config.active_project() == "model"
-
-
-def test_no_active_project_and_none_initialized_errors():
-    result = runner.invoke(cli.app, ["apps"])
+    result = runner.invoke(cli.app, ["run", "ghost/hello"])
     assert result.exit_code != 0
-    assert isinstance(result.exception, NoActiveProjectError)
+    assert isinstance(result.exception, ProjectNotFoundError)
+
+
+def test_update_requires_target(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin())])
+    result = runner.invoke(cli.app, ["update"])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ArgumentError)
+
+
+def test_update_project_by_name(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin())])
+    result = runner.invoke(cli.app, ["update", "model"])
+    assert result.exit_code == 0, result.output
+    assert "Updated 'model'." in result.output
+
+
+def test_update_all(make_origin):
+    runner.invoke(cli.app, ["init", "a", str(make_origin())])
+    runner.invoke(cli.app, ["init", "b", str(make_origin(name="o2"))])
+    result = runner.invoke(cli.app, ["update", "--all"])
+    assert result.exit_code == 0, result.output
+    assert "Updated 'a'." in result.output
+    assert "Updated 'b'." in result.output
 
 
 def test_update_all_with_project_name_errors(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin())])
     result = runner.invoke(cli.app, ["update", "model", "--all"])
     assert result.exit_code != 0
+    assert isinstance(result.exception, ArgumentError)
 
 
 def test_run_cli_reports_stello_error(monkeypatch, capsys):

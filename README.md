@@ -19,72 +19,51 @@ PATH. With those in place, install stello from git:
 uv tool install git+https://github.com/nikovacevic/stello.git
 ```
 
-To also get stello's built-in control panels (see below), install the `terminal` and/or
-`dashboard` extras:
-
-```bash
-uv tool install "stello[terminal,dashboard] @ git+https://github.com/nikovacevic/stello.git"
-```
-
 If the `stello` command isn't found afterward, add uv's bin dir to your PATH:
 
 ```bash
 uv tool update-shell
 ```
 
-### Control panels, built in
+### Control panels, as apps
 
-Stello ships two control panels — `terminal`, a
+Stello has two control panels — `terminal`, a
 [Textual](https://textual.textualize.io/) TUI, and `dashboard`, a
 [NiceGUI](https://nicegui.io/) web UI — that browse your projects and list/launch their
-apps. They're built-in commands, so with the extras installed you can run them directly,
-no project required:
+apps. They aren't special commands: they're just stello applications, declared in stello's
+own `stello.yaml`. Running them shows how stello runs *any* project's apps — including its
+own — and keeps the core install light (their Textual/NiceGUI deps live with the apps, not
+in `stello` itself).
 
-```bash
-stello terminal        # Textual TUI  (needs the `terminal` extra)
-stello dashboard       # web UI        (needs the `dashboard` extra)
-```
-
-### Try it: run stello with stello
-
-Stello is itself a stello project — it dogfoods its own panels. Its `stello.yaml` declares
-those same two control panels as ordinary applications: `terminal` (the Textual TUI) and
-`stello` (the NiceGUI web UI). Running them this way, rather than via the built-in commands
-above, shows how stello runs *any* project's apps.
-
-First, initialize the project:
+Because stello is stateless, applications are addressed as `<project>/<app>`. So first
+initialize stello as a project, then run either panel:
 
 ```bash
 stello init stello https://github.com/nikovacevic/stello.git
-```
-
-Then, `stello run` either `terminal` or `stello`:
-```bash
-stello run terminal
+stello run stello/terminal
 ```
 
 <img alt="stello-control-panel" src="https://github.com/user-attachments/assets/357dd616-4aa8-454e-be18-a43e020146c0" />
 
 ```bash
-stello run stello
+stello run stello/dashboard
 ```
 
-From either the stello UI or terminal, you can browse projects and apps. You can then select an app and run it. Pass args with `--set`
-in `terminal` or using the controls in the stello UI:
+From either panel you can browse projects and apps, select an app, and run it. Pass args
+with `--set` in `terminal` or using the controls in the dashboard:
 
 ```bash
-stello run terminal --set theme=light
-stello run stello --set port=9000
+stello run stello/terminal --set theme=light
+stello run stello/dashboard --set port=9000
 ```
 
-Inspect and update your projects from the terminal or the stello UI
-
-All commands available in the terminal and UI are easy to use directly with the CLI:
+Everything the panels do is available directly on the CLI:
 
 ```bash
-stello projects        # list projects, active one marked with *
-stello apps            # list apps in the active project
-stello update          # pull the latest main for the active project
+stello projects            # list initialized projects
+stello apps                # list every app, as <project>/<app>
+stello update stello       # pull the latest main for one project
+stello update --all        # ...or for every project
 ```
 
 ## Development
@@ -95,9 +74,9 @@ Run from a source checkout without installing:
 uv run stello --help
 ```
 
-The `stello` app reuses stello's own manifest parser, and its uv project depends on stello
-via a `../..` path source — so once cloned into `~/.stello/projects/stello`, it builds
-stello from that clone, not from your dev checkout.
+The `terminal` and `dashboard` apps reuse stello's own library, and each app's uv project
+depends on stello via a `../..` path source — so once cloned into `~/.stello/projects/stello`,
+they build stello from that clone, not from your dev checkout.
 
 See [`agents/product.md`](agents/product.md) for the product spec and
 [`AGENTS.md`](AGENTS.md) for development guidance.

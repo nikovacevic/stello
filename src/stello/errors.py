@@ -1,8 +1,8 @@
 """Typed, user-facing errors.
 
-`StelloError` is the base for expected failures (bad input, missing config, git/uv
-problems). The CLI layer catches these, prints the message, and exits with `exit_code`.
-Anything that isn't a `StelloError` is a bug and should surface as a normal traceback.
+`StelloError` is the base for expected failures (bad input, git/uv problems). The CLI layer
+catches these, prints the message, and exits with `exit_code`. Anything that isn't a
+`StelloError` is a bug and should surface as a normal traceback.
 """
 
 from __future__ import annotations
@@ -12,10 +12,6 @@ class StelloError(Exception):
     """Base for expected, user-facing errors."""
 
     exit_code: int = 1
-
-
-class ConfigError(StelloError):
-    """The stello config directory or config.yaml is missing, malformed, or invalid."""
 
 
 class InvalidNameError(StelloError):
@@ -42,17 +38,9 @@ class ProjectNotFoundError(StelloError):
     """The requested project is not an initialized project."""
 
 
-class NoActiveProjectError(StelloError):
-    """A command needs a project, but none is active and none could be selected."""
-
-
 class ApplicationNotFoundError(StelloError):
-    """The requested application is not declared in the active project's stello.yaml."""
+    """The requested application is not declared in the project's stello.yaml."""
 
 
 class ArgumentError(StelloError):
-    """An application argument override (`--set`) is malformed or invalid."""
-
-
-class MissingExtraError(StelloError):
-    """A built-in UI command needs an optional extra that isn't installed."""
+    """An application argument override (`--set`), or an application reference, is invalid."""

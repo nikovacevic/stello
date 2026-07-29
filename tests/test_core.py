@@ -1,7 +1,7 @@
 import pytest
 
-from stello import config, core, uv
-from stello.errors import ApplicationNotFoundError, ProjectNotFoundError
+from stello import core, paths, uv
+from stello.errors import ApplicationNotFoundError
 
 MANIFEST = """
 applications:
@@ -19,34 +19,28 @@ applications:
 
 @pytest.fixture(autouse=True)
 def home(tmp_path, monkeypatch):
-    monkeypatch.setenv(config.HOME_ENV_VAR, str(tmp_path / "home"))
+    monkeypatch.setenv(paths.HOME_ENV_VAR, str(tmp_path / "home"))
 
 
-def test_add_project_activates_and_lists(make_origin):
+def test_add_project_and_list(make_origin):
     info = core.add_project("model", str(make_origin(manifest=MANIFEST)))
-    assert info.is_active and info.name == "model"
-    assert core.active_project() == "model"
+    assert info.name == "model"
 
     (only,) = core.list_projects()
-    assert only.name == "model" and only.is_active is True
-
-
-def test_add_project_without_activate(make_origin):
-    core.add_project("a", str(make_origin()))
-    core.add_project("b", str(make_origin(name="o2")), activate=False)
-    assert core.active_project() == "a"
-    assert {p.name: p.is_active for p in core.list_projects()} == {"a": True, "b": False}
-
-
-def test_set_active_invalid_raises():
-    with pytest.raises(ProjectNotFoundError):
-        core.set_active("ghost")
+    assert only.name == "model"
 
 
 def test_apps_for_and_find_app(make_origin):
     core.add_project("model", str(make_origin(manifest=MANIFEST)))
     assert [a.name for a in core.apps_for("model")] == ["hello"]
     assert core.find_app("model", "hello").script == "./main.py"
+
+
+def test_list_all_apps_spans_projects(make_origin):
+    core.add_project("a", str(make_origin(manifest=MANIFEST)))
+    core.add_project("b", str(make_origin(name="o2", manifest=MANIFEST)))
+    refs = {f"{project}/{app.name}" for project, app in core.list_all_apps()}
+    assert refs == {"a/hello", "b/hello"}
 
 
 def test_find_app_unknown_raises(make_origin):
@@ -111,5 +105,5 @@ def test_launched_process_captures_output():
 
 def test_update_all_returns_names(make_origin):
     core.add_project("a", str(make_origin()))
-    core.add_project("b", str(make_origin(name="o2")), activate=False)
+    core.add_project("b", str(make_origin(name="o2")))
     assert core.update_all() == ["a", "b"]

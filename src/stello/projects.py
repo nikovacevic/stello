@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from stello import config, git
+from stello import git, paths
 from stello.errors import ProjectExistsError, ProjectNotFoundError
 from stello.naming import validate_name
 
 
 def project_path(name: str) -> Path:
     """Path where project ``name`` lives (whether or not it exists)."""
-    return config.projects_dir() / name
+    return paths.projects_dir() / name
 
 
 def is_project(name: str) -> bool:
@@ -25,7 +25,7 @@ def is_project(name: str) -> bool:
 
 def list_projects() -> list[str]:
     """Sorted names of initialized projects."""
-    root = config.projects_dir()
+    root = paths.projects_dir()
     if not root.is_dir():
         return []
     return sorted(p.name for p in root.iterdir() if git.is_git_repo(p))
@@ -41,7 +41,7 @@ def add_project(name: str, remote_url: str) -> Path:
     dest = project_path(name)
     if dest.exists():
         raise ProjectExistsError(f"A project named {name!r} already exists at {dest}.")
-    config.ensure_dirs()
+    paths.ensure_dirs()
     git.clone_main(remote_url, dest)
     return dest
 

@@ -15,18 +15,18 @@ Stello aims to let teams build, share and use tools -- all locally, without need
 
 Stello should allow a user to list, update, and run Python applications using `uv` and `git` under the hood.
 
-Stello should allow a user to step up one or more projects. Each project has a name and corresponds to a
-local `git` repository within Stello's local configuration directory. The only additional configuration
-file within that local configuration directory should be `config.yaml`. The `config.yaml` file should take the
-following format:
+Stello should allow a user to set up one or more projects. Each project has a name and corresponds to a
+local `git` repository within Stello's local directory.
 
-```yaml
-project: model # name of active project (corresponds to ~/.stello/projects/model, which should be a git repo)
-```
+Stello is **stateless**: there is no "active" project and no `config.yaml`. Every command that acts on a
+project names it explicitly — applications are addressed as `<project>/<app>` — so the same command always
+means the same thing and stello is safe to script. The only state stello keeps on disk is the project git
+repositories themselves.
 
-On Linux and Mac the local configuration directory should be located within the user's home directory. It should
-be called `~/.stello`. The location can be overridden by setting the `STELLO_HOME` environment variable, which is
-useful for testing and for advanced users who want to relocate the config directory.
+On Linux and Mac the local directory should be located within the user's home directory. It should
+be called `~/.stello`, containing only `projects/<name>/` (one git repo per project). The location can be
+overridden by setting the `STELLO_HOME` environment variable, which is useful for testing and for advanced
+users who want to relocate the directory.
 
 Within each Stello project (i.e. `git` repository) there MUST be a `stello.yaml` file in the root directory.
 It lists the project's applications. Each application has:
@@ -70,16 +70,15 @@ branches and tags should be supported, for things like `beta`, semantic versioni
 
 ## Commands
 
-Stello should support the following commands. Commands that require an active project (`apps`, `run`, and
-`update` with no arguments) should, when no project is active, prompt the user to select an initialized
-project or to run `stello init`.
+Stello should support the following commands. There is no active project, so every command that acts on a
+project names it (or, for `update`, uses `--all`).
 
 #### `stello init <project_name> <remote_git_url>`
 
-Should clones the `git` repo to the local stello directory under the given project name, and activates it.
+Should clone the `git` repo to the local stello directory under the given project name.
 
 For example, `stello init model git@github.com:my-org/my-model.git` should clone the given `git` project into
-`~/.stello/projects/model`, and set `project: model` in `config.yaml`.
+`~/.stello/projects/model`.
 
 Init should clone the remote's `main` branch explicitly and fail if the remote has no `main` branch. Project
 names must be unique: if a project with the given name already exists, init should error rather than overwrite
@@ -88,37 +87,36 @@ it. Re-cloning the same remote under a different project name is allowed.
 #### `stello projects`
 
 Should list the names of the initialized projects, which is just the names of the directories within
-`~/.stello/projects` which are valid `git` repositories. The active project is marked with a `*`.
+`~/.stello/projects` which are valid `git` repositories.
 
-#### `stello open <project_name>`
+#### `stello update <project_name>` / `stello update --all`
 
-Should check the list of valid, initialized projects and set `project: <project_name>` in `config.yaml` if the
-given project name is valid.
+Should update the `git` repository for a project to the latest `main`. Project checkouts are treated as
+read-only mirrors, so update should `git fetch` and then `git reset --hard origin/main` rather than `git pull`
+— this avoids merge conflicts if the local working tree has drifted (e.g. from running applications in place).
 
-#### `stello update`
-
-Should update the `git` repository for the active project to the latest `main`. Project
-checkouts are treated as read-only mirrors, so update should `git fetch` and then
-`git reset --hard origin/main` rather than `git pull` — this avoids merge conflicts if the
-local working tree has drifted (e.g. from running applications in place).
-
-`stello update --all` should update all projects.
-
-`stello update <project_name>` should update the project of the given name.
+`stello update <project_name>` updates that one project; `stello update --all` updates every initialized
+project. `stello update` with neither a project name nor `--all` is an error (there is no active project to
+default to). Combining `--all` with a project name is also an error.
 
 #### `stello apps`
 
-Should read the `stello.yaml` file for the active project (located in the root of its `git` repository) and report
-back the application names available to run.
+Should list every application across all initialized projects, one per line as `<project>/<app>` — reading each
+project's `stello.yaml` (located in the root of its `git` repository). A project whose manifest is missing or
+malformed is skipped rather than aborting the whole listing. The output doubles as the set of references
+accepted by `stello run`.
 
-#### `stello run <application_name> [--set <name>=<value> ...]`
+#### `stello run <project>/<app> [--set <name>=<value> ...]`
 
-Should read the `stello.yaml` file for the active project, find the application with the given name, and run it
-with `uv` from the application's `dir`, roughly:
+Should read the named project's `stello.yaml`, find the application with the given name, and run it with `uv`
+from the application's `dir`, roughly:
 
 ```
 uv run --directory <dir> <script> <args...>
 ```
+
+The application reference is always `<project>/<app>` — there is no active project to omit it against. A
+reference without exactly one `/` is an error.
 
 Argument values start from each declared arg's `default` and are overridden by `--set <name>=<value>`. A `--set`
 name that doesn't match a declared arg is an error. Values are passed to the script as CLI flags:
@@ -126,12 +124,31 @@ name that doesn't match a declared arg is an error. Values are passed to the scr
 - `string` / `int` args are passed as `--<name> <value>`.
 - `bool` args are passed as `--<name>` when true, and omitted when false.
 
-For example, given the `model` application above, `stello run model --set scenario=stress --set verbose=true` runs
-`uv run --directory ./apps/model ./src/model/main.py --scenario stress --verbose`.
+For example, given a `model` application in the `demo` project, `stello run demo/model --set scenario=stress
+--set verbose=true` runs `uv run --directory ./apps/model ./src/model/main.py --scenario stress --verbose`.
 
 Stello uses a plain `uv run` (not `--frozen`), so applications run whether or not they commit a `uv.lock`. Any
 lockfile or virtualenv churn a run leaves in the checkout is disposable — `stello update` hard-resets to
 `origin/main`.
+
+## Control panels
+
+Stello ships two control-panel UIs — a Textual TUI (`terminal`) and a NiceGUI web dashboard (`dashboard`) —
+that browse projects and list/launch their applications. These are **ordinary stello applications, not
+built-in commands**: the stello repo is itself a stello project whose `stello.yaml` declares them, so you run
+them with `stello run stello/terminal` and `stello run stello/dashboard` after initializing the stello project.
+Keeping them as apps keeps the core install light (no Textual/NiceGUI dependency) and demonstrates that stello
+runs *any* project's apps, including its own. In the panels, projects are just namespaces to browse — there is
+no "open"/active concept.
+
+## Future work
+
+- **Ambient project context (not yet built).** To recover the ergonomics of a default project without
+  reintroducing persisted global state, stello may later honor a `STELLO_PROJECT` environment variable (a
+  per-shell, explicit, ephemeral context, like `AWS_PROFILE`) and/or let `stello run <app>` omit the project
+  when exactly one project is initialized. Neither exists today; `<project>/<app>` is always required.
+- **Branches and tags.** Each project's remote works from a single `main` branch today (see below); `beta`,
+  semantic versions, etc. are a future concern.
 
 ## Dependencies
 

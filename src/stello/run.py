@@ -15,6 +15,21 @@ from stello.errors import ArgumentError
 from stello.models import Application, Arg, ArgType
 
 
+def parse_app_ref(ref: str) -> tuple[str, str]:
+    """Split a ``project/app`` reference into its parts, rejecting malformed input.
+
+    Project and application names never contain ``/`` (see ``naming.validate_name``), so a
+    valid reference has exactly one slash. Anything else — a bare ``app`` with no project, an
+    empty side, or extra slashes — is a usage error.
+    """
+    if ref.count("/") != 1:
+        raise ArgumentError(f"Invalid application {ref!r}: expected '<project>/<app>'.")
+    project, app = ref.split("/", 1)
+    if not project or not app:
+        raise ArgumentError(f"Invalid application {ref!r}: expected '<project>/<app>'.")
+    return project, app
+
+
 def parse_overrides(items: Sequence[str] | None) -> dict[str, str]:
     """Parse ``--set NAME=VALUE`` strings into a mapping, rejecting malformed input."""
     overrides: dict[str, str] = {}

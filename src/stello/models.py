@@ -16,18 +16,6 @@ from stello.coerce import to_bool, to_int
 from stello.naming import validate_name
 
 
-class Config(BaseModel):
-    """Contents of ``~/.stello/config.yaml``.
-
-    The only key is ``project``, naming the active project. Unknown keys are rejected so
-    typos surface instead of being silently ignored.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    project: str | None = None
-
-
 class ArgType(str, Enum):
     """The supported declared types for an application argument."""
 

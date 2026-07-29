@@ -1,12 +1,12 @@
 import pytest
 
-from stello import config, projects
+from stello import paths, projects
 from stello.errors import InvalidNameError, ProjectExistsError, ProjectNotFoundError
 
 
 @pytest.fixture(autouse=True)
 def home(tmp_path, monkeypatch):
-    monkeypatch.setenv(config.HOME_ENV_VAR, str(tmp_path / "home"))
+    monkeypatch.setenv(paths.HOME_ENV_VAR, str(tmp_path / "home"))
 
 
 def test_add_and_list(make_origin):
