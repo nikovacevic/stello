@@ -51,7 +51,8 @@ class StelloTUI(App):
     #arg-controls { height: auto; max-height: 40%; }
     .arg-row { height: 3; }
     .arg-row Label { width: 16; content-align: left middle; height: 3; }
-    #run { margin: 1 0; }
+    #run-buttons { height: auto; margin: 1 0; }
+    #run-buttons Button { margin-right: 2; }
     #output { height: 1fr; border: round $panel; }
     """
 
@@ -74,6 +75,8 @@ class StelloTUI(App):
         self._supervised: list[core.LaunchedProcess] = []
         self._pushed: dict[int, int] = {}
         self._exited: set[int] = set()
+        # Most recent launch per app name, so Stop can target the selected app's process.
+        self._procs: dict[str, core.LaunchedProcess] = {}
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -87,7 +90,9 @@ class StelloTUI(App):
             with Vertical(id="right"):
                 yield Static(id="detail")
                 yield VerticalScroll(id="arg-controls")
-                yield Button("▶ Run", id="run", variant="success")
+                with Horizontal(id="run-buttons"):
+                    yield Button("▶ Run", id="run", variant="success")
+                    yield Button("■ Stop", id="stop", variant="error", disabled=True)
                 yield Log(id="output")
         yield Footer()
 
@@ -176,6 +181,19 @@ class StelloTUI(App):
                 widget = Input(value=str(arg.default), id=f"arg-{arg.name}")
             rows.append(Horizontal(Label(arg.name), widget, classes="arg-row"))
         controls.mount(*rows)
+        self._refresh_run_buttons()
+
+    def _refresh_run_buttons(self) -> None:
+        """Enable Run/Stop to match whether the selected app has a running process."""
+        running = False
+        if self.selected is not None:
+            proc = self._procs.get(self.selected.name)
+            running = bool(proc and proc.is_running())
+        try:
+            self.query_one("#run", Button).disabled = running
+            self.query_one("#stop", Button).disabled = not running
+        except Exception:
+            pass
 
     # --- helpers ----------------------------------------------------------
 
@@ -228,7 +246,13 @@ class StelloTUI(App):
         self._notify(f"Opened '{self.current_project}' — now the active project")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id != "run" or self.selected is None or self.current_project is None:
+        if event.button.id == "run":
+            self._run_selected()
+        elif event.button.id == "stop":
+            self._stop_selected()
+
+    def _run_selected(self) -> None:
+        if self.selected is None or self.current_project is None:
             return
         app = self.selected
         output = self.query_one("#output", Log)
@@ -249,7 +273,19 @@ class StelloTUI(App):
             output.write_line(f"  ! failed to launch: {exc}")
             return
         self._supervised.append(proc)
+        self._procs[app.name] = proc
         output.write_line(f"  launched {app.name} (pid {proc.pid}) — streaming output:")
+        self._refresh_run_buttons()
+
+    def _stop_selected(self) -> None:
+        if self.selected is None:
+            return
+        proc = self._procs.get(self.selected.name)
+        if proc is None or not proc.is_running():
+            return
+        proc.stop()
+        self.query_one("#output", Log).write_line(f"[{proc.label}] stopping (pid {proc.pid}) …")
+        self._refresh_run_buttons()
 
     def _stream_logs(self) -> None:
         """Poll supervised processes and push new output/exit lines into the log."""
@@ -264,6 +300,7 @@ class StelloTUI(App):
             if not proc.is_running() and id(proc) not in self._exited:
                 self._exited.add(id(proc))
                 output.write_line(f"[{proc.label}] (exited {proc.returncode})")
+                self._refresh_run_buttons()
 
     def _collect_overrides(self, app: Application) -> dict[str, str]:
         overrides: dict[str, str] = {}
