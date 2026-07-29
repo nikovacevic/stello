@@ -7,8 +7,8 @@ apps from a single command line, entirely on the local machine.
 
 ## Status
 
-Very early alpha — but it works. You can install stello, initialize projects, and run
-their applications today. Expect rough edges and breaking changes.
+Very early alpha — but it works! You can install stello, initialize projects, and run
+applications. Expect rough edges and breaking changes.
 
 ## Getting started
 
@@ -27,36 +27,45 @@ uv tool update-shell
 
 ### Try it: run stello with stello
 
-Stello is itself a stello project — its repo root declares two applications: `stello`, a
+Stello is itself a stello project. Its declares two applications: `stello`, a
 [Textual](https://textual.textualize.io/) TUI control panel, and `control-plane`, a
 [NiceGUI](https://nicegui.io/) browser-based control plane. Both browse projects and
-list/launch apps. Initialize the project, then run the TUI:
+list/launch apps.
+
+First, initialize the project:
 
 ```bash
 stello init stello https://github.com/nikovacevic/stello.git
+```
+
+Then, `stello run` either `terminal` or `stello`:
+```bash
+stello run terminal
+```
+
+<img alt="stello-control-panel" src="https://github.com/user-attachments/assets/357dd616-4aa8-454e-be18-a43e020146c0" />
+
+```bash
 stello run stello
 ```
 
-From the Stello TUI, select an app and press **Run** to launch it — pick `control-plane`
-to open the web control plane in your browser. You can also run either app directly,
-passing args with `--set`:
+From either the stello UI or terminal, you can browse projects and apps. You can then select an app and run it. Pass args with `--set`
+in `terminal` or using the controls in the stello UI:
 
 ```bash
-stello run stello --set theme=light
-stello run control-plane --set port=9000
+stello run terminal --set theme=light
+stello run stello --set port=9000
 ```
 
-Inspect and update your projects:
+Inspect and update your projects from the terminal or the stello UI
+
+All commands available in the terminal and UI are easy to use directly with the CLI:
 
 ```bash
 stello projects        # list projects, active one marked with *
 stello apps            # list apps in the active project
 stello update          # pull the latest main for the active project
 ```
-
-The `stello` app reuses stello's own manifest parser, and its uv project depends on stello
-via a `../..` path source — so once cloned into `~/.stello/projects/stello`, it builds
-stello from that clone, not from your dev checkout.
 
 ## Development
 
@@ -65,6 +74,10 @@ Run from a source checkout without installing:
 ```bash
 uv run stello --help
 ```
+
+The `stello` app reuses stello's own manifest parser, and its uv project depends on stello
+via a `../..` path source — so once cloned into `~/.stello/projects/stello`, it builds
+stello from that clone, not from your dev checkout.
 
 See [`agents/product.md`](agents/product.md) for the product spec and
 [`AGENTS.md`](AGENTS.md) for development guidance.
