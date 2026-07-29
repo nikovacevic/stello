@@ -23,7 +23,17 @@ uv run stello --help
 
 Stello is itself a stello project — the repo root has a `stello.yaml` declaring a
 `dashboard` application (a [Textual](https://textual.textualize.io/) control panel that
-introspects the project it lives in). You can run it through stello:
+introspects the project it lives in).
+
+First, install `stello` with `uv`:
+
+```bash
+uv tool install git+https://github.com/nikovacevic/stello.git
+```
+
+You might need to add the `bin` dir to your path with `uv tool update-shell`.
+
+Then run the TUI with `stello`:
 
 ```bash
 stello init stello /path/to/this/repo   # a local path works as a git remote
