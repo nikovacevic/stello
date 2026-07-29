@@ -40,12 +40,12 @@ stello init stello https://github.com/nikovacevic/stello.git   # a local path wo
 stello run dashboard
 ```
 
+Try passing an argument to change the theme:
+
+```bash
+stello run dashboard --set theme=light
+```
+
 The dashboard reuses stello's own manifest parser, and its uv project depends on stello
 via a `../..` path source — so when the project is cloned into `~/.stello/projects/stello`,
 it builds stello from that clone, not from your dev checkout.
-
-During development you can also launch it directly:
-
-```bash
-uv run --directory apps/dashboard main.py --theme light
-```
