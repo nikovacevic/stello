@@ -38,8 +38,8 @@ def test_init_activates_and_lists(make_origin):
     assert result.exit_code == 0, result.output
     assert config.active_project() == "model"
 
-    listed = runner.invoke(cli.app, ["list", "projects"])
-    assert "model" in listed.output
+    listed = runner.invoke(cli.app, ["projects"])
+    assert "* model" in listed.output  # active project marked
 
 
 def test_init_duplicate_errors(make_origin):
@@ -58,7 +58,7 @@ def test_open_invalid_errors():
 
 def test_list_applications(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
-    result = runner.invoke(cli.app, ["list"])
+    result = runner.invoke(cli.app, ["apps"])
     assert result.exit_code == 0, result.output
     assert "hello" in result.output
 
@@ -98,14 +98,14 @@ def test_no_active_project_prompt_selects(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
     config.save_config(Config(project=None))  # clear the active pointer
 
-    result = runner.invoke(cli.app, ["list"], input="model\n")
+    result = runner.invoke(cli.app, ["apps"], input="model\n")
     assert result.exit_code == 0, (result.output, result.exception)
     assert "hello" in result.output
     assert config.active_project() == "model"
 
 
 def test_no_active_project_and_none_initialized_errors():
-    result = runner.invoke(cli.app, ["list"])
+    result = runner.invoke(cli.app, ["apps"])
     assert result.exit_code != 0
     assert isinstance(result.exception, NoActiveProjectError)
 

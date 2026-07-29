@@ -36,7 +36,7 @@ You might need to add the `bin` dir to your path with `uv tool update-shell`.
 Then run the TUI with `stello`:
 
 ```bash
-stello init stello /path/to/this/repo   # a local path works as a git remote
+stello init stello https://github.com/nikovacevic/stello.git   # a local path works as a git remote
 stello run dashboard
 ```
 

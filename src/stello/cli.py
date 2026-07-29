@@ -7,7 +7,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from stello import __version__, config, git, projects, run as run_args, uv
+from stello import __version__, config, git, projects as project_ops, run as run_args, uv
 from stello.errors import (
     ApplicationNotFoundError,
     ArgumentError,
@@ -43,7 +43,7 @@ def main(
 
 def _select_project_interactively() -> str:
     """Prompt the user to pick an initialized project, then make it active."""
-    available = projects.list_projects()
+    available = project_ops.list_projects()
     if not available:
         raise NoActiveProjectError(
             "No active project is set and none are initialized. "
@@ -74,7 +74,7 @@ def _active_project() -> tuple[str, Path]:
     name = config.active_project()
     if name is None:
         name = _select_project_interactively()
-    path = projects.project_path(name)
+    path = project_ops.project_path(name)
     if not git.is_git_repo(path):
         raise ProjectNotFoundError(
             f"Active project {name!r} is not an initialized git repository ({path}). "
@@ -89,7 +89,7 @@ def init(
     remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone (must have a `main` branch).")],
 ) -> None:
     """Clone a remote git repo as a new project and activate it."""
-    projects.add_project(project_name, remote_git_url)
+    project_ops.add_project(project_name, remote_git_url)
     config.set_active_project(project_name)
     typer.echo(f"Initialized project {project_name!r} and set it active.")
 
@@ -99,7 +99,7 @@ def open_project(
     project_name: Annotated[str, typer.Argument(help="Project to activate.")],
 ) -> None:
     """Set the active project."""
-    projects.require_project(project_name)
+    project_ops.require_project(project_name)
     config.set_active_project(project_name)
     typer.echo(f"Active project set to {project_name!r}.")
 
@@ -117,17 +117,17 @@ def update(
         raise ArgumentError("Cannot combine --all with a project name.")
 
     if all_:
-        names = projects.list_projects()
+        names = project_ops.list_projects()
         if not names:
             typer.echo("No projects to update.", err=True)
             return
         for name in names:
-            git.fetch_and_reset(projects.project_path(name))
+            git.fetch_and_reset(project_ops.project_path(name))
             typer.echo(f"Updated {name!r}.")
         return
 
     if project_name:
-        path = projects.require_project(project_name)
+        path = project_ops.require_project(project_name)
         git.fetch_and_reset(path)
         typer.echo(f"Updated {project_name!r}.")
         return
@@ -161,20 +161,9 @@ def run(
     raise typer.Exit(exit_code)
 
 
-# `list` is a group so both `stello list` (apps) and `stello list projects` work.
-list_app = typer.Typer(
-    help="List applications in the active project (or `list projects`).",
-    invoke_without_command=True,
-    no_args_is_help=False,
-)
-app.add_typer(list_app, name="list")
-
-
-@list_app.callback(invoke_without_command=True)
-def list_applications(ctx: typer.Context) -> None:
-    """List the applications available to run in the active project."""
-    if ctx.invoked_subcommand is not None:
-        return
+@app.command()
+def apps() -> None:
+    """List the applications in the active project."""
     _, path = _active_project()
     manifest = load_manifest(path)
     if not manifest.applications:
@@ -184,18 +173,17 @@ def list_applications(ctx: typer.Context) -> None:
         typer.echo(application.name)
 
 
-@list_app.command("projects")
-def list_projects() -> None:
-    """List initialized projects."""
-    names = projects.list_projects()
+@app.command()
+def projects() -> None:
+    """List initialized projects, marking the active one with `*`."""
+    names = project_ops.list_projects()
     if not names:
         typer.echo("No projects initialized. Run `stello init <project_name> <remote_git_url>`.", err=True)
         return
     active = config.active_project()
     for name in names:
-        typer.echo(name)  # stdout stays scriptable (plain names)
-    if active in names:
-        typer.echo(f"(active project: {active})", err=True)
+        marker = "*" if name == active else " "
+        typer.echo(f"{marker} {name}")
 
 
 def run_cli() -> None:

@@ -62,14 +62,14 @@ or select projects.
 
 | Command | Behavior |
 | --- | --- |
-| `stello init <project_name> <remote_git_url>` | Clone the remote into `~/.stello/projects/<project_name>` and set it active. |
-| `stello list projects` | List initialized projects — the dirs under `~/.stello/projects` that are valid git repos. |
+| `stello init <project_name> <remote_git_url>` | Clone the remote's `main` into `~/.stello/projects/<project_name>` and set it active. |
+| `stello projects` | List initialized projects (dirs under `~/.stello/projects` that are valid git repos), marking the active one with `*`. |
 | `stello open <project_name>` | If `<project_name>` is a valid initialized project, set it active in the config file. |
-| `stello update` | `git fetch && git pull` the **active** project's repo. |
+| `stello update` | Update the **active** project to `origin/main` (`git fetch` + `reset --hard`). |
 | `stello update <project_name>` | Same, for the named project. |
 | `stello update --all` | Same, for every initialized project. |
-| `stello list` | Read the active project's `stello.yaml` and report the runnable application names. |
-| `stello run <application_name>` | Look up the application in the active project's `stello.yaml` and `uv run` it from its `dir`. |
+| `stello apps` | Read the active project's `stello.yaml` and report the runnable application names. |
+| `stello run <application_name> [--set NAME=VALUE ...]` | Look up the application in the active project's `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. |
 
 Keep command semantics aligned with `agents/product.md`; if you change behavior here,
 update that file too.
@@ -79,7 +79,7 @@ update that file too.
 - **Language / packaging:** Python, managed with **`uv`**. Stello is itself a uv-managed
   project and is distributed so it can be run via uv (e.g. `uvx`).
 - **CLI framework:** **Typer** — use its type-hint-driven command definitions for the
-  `init` / `update` / `list` / `run` commands.
+  `init` / `projects` / `open` / `update` / `apps` / `run` commands.
 - **Dependencies:** keep stello's own footprint small. Its only required *external*
   tools are `git` and `uv`, which it invokes as subprocesses. Each application in the
   remote repo carries its own dependencies, resolved by uv at run time.
@@ -100,12 +100,12 @@ update that file too.
   `projects/` subdir) as needed. Fail gracefully when no project is initialized, when
   the config file names a project that doesn't exist, or when no project is active.
 - Validate that a `projects/<name>` directory is a real git repo before treating it as a
-  project (this is exactly what `stello list projects` filters on).
+  project (this is exactly what `stello projects` filters on).
 - A project repo is only usable if it has a `stello.yaml` at its root — treat a missing
   or malformed `stello.yaml` as a clear, named error, not a crash.
 - Don't hardcode paths; derive the config dir from the user's home directory so the
   same logic works on macOS and Linux.
-- Prefer plain, scriptable output for the `list` commands so they compose with other
+- Prefer plain, scriptable output for `projects` and `apps` so they compose with other
   tools.
 
 ## Working in this repo

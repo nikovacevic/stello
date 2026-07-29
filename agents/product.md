@@ -70,11 +70,11 @@ branches and tags should be supported, for things like `beta`, semantic versioni
 
 ## Commands
 
-Stello should support the following commands. Commands that require an active project (`list`, `run`, and
+Stello should support the following commands. Commands that require an active project (`apps`, `run`, and
 `update` with no arguments) should, when no project is active, prompt the user to select an initialized
 project or to run `stello init`.
 
-### `stello init <project_name> <remote_git_url>`
+#### `stello init <project_name> <remote_git_url>`
 
 Should clones the `git` repo to the local stello directory under the given project name, and activates it.
 
@@ -85,17 +85,17 @@ Init should clone the remote's `main` branch explicitly and fail if the remote h
 names must be unique: if a project with the given name already exists, init should error rather than overwrite
 it. Re-cloning the same remote under a different project name is allowed.
 
-### `stello list projects`
+#### `stello projects`
 
 Should list the names of the initialized projects, which is just the names of the directories within
-`~/.stello/projects` which are valid `git` repositories.
+`~/.stello/projects` which are valid `git` repositories. The active project is marked with a `*`.
 
-### `stello open <project_name>`
+#### `stello open <project_name>`
 
 Should check the list of valid, initialized projects and set `project: <project_name>` in `config.yaml` if the
 given project name is valid.
 
-### `stello update`
+#### `stello update`
 
 Should update the `git` repository for the active project to the latest `main`. Project
 checkouts are treated as read-only mirrors, so update should `git fetch` and then
@@ -106,12 +106,12 @@ local working tree has drifted (e.g. from running applications in place).
 
 `stello update <project_name>` should update the project of the given name.
 
-### `stello list`
+#### `stello apps`
 
 Should read the `stello.yaml` file for the active project (located in the root of its `git` repository) and report
 back the application names available to run.
 
-### `stello run <application_name> [--set <name>=<value> ...]`
+#### `stello run <application_name> [--set <name>=<value> ...]`
 
 Should read the `stello.yaml` file for the active project, find the application with the given name, and run it
 with `uv` from the application's `dir`, roughly:
