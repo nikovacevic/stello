@@ -379,7 +379,8 @@ body { background:var(--bg); color:var(--fg); }
 .footer { background:var(--bar-bg); border-top:1px solid var(--border);
           padding:4px 12px; color:var(--muted); font-size:.8rem; }
 .pane { background:var(--pane-bg); border:1px solid var(--border); border-radius:6px;
-        margin:6px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow:hidden; }
+        margin:6px; display:flex; flex-direction:column; flex:1 1 auto; align-self:stretch;
+        min-height:0; min-width:0; overflow:hidden; }
 .pane-active { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
 .pane-title { color:var(--muted); font-weight:700; padding:4px 8px;
               border-bottom:1px solid var(--border); }
@@ -394,7 +395,6 @@ body { background:var(--bg); color:var(--fg); }
 .app-head { color:var(--muted); font-weight:700; padding:2px 8px;
             border-bottom:1px solid var(--border); }
 .app-row .q-label, .app-row > div { overflow:hidden; text-overflow:ellipsis; }
-.pane-run { flex:1.3; }
 .run-top { padding:8px; border-bottom:1px solid var(--border); }
 .run-title { font-weight:700; font-size:1.05rem; }
 .run-sub { color:var(--muted); margin-bottom:8px; }
@@ -430,18 +430,19 @@ def build() -> None:
     with ui.column().classes("w-full h-screen p-0 gap-0"):
         # Top bar.
         with ui.element("div").classes("bar w-full"):
-            ui.label("stello · control panel").classes("bar-title")
+            ui.label("stello").classes("bar-title")
             refs["subtitle"] = ui.label().classes("bar-sub")
             ui.element("div").classes("bar-spacer")
             refs["theme_btn"] = ui.button(_theme_label(), on_click=_toggle_theme).props("flat dense")
 
-        # Three panes.
+        # Three panes fill the width: projects a compact fixed column (just short project
+        # names), apps and run share the rest — run favored, since its live log wants width.
         with ui.row().classes("w-full flex-1 min-h-0 no-wrap gap-0"):
-            with ui.column().classes("h-full min-h-0 gap-0").style("width:24%"):
+            with ui.column().classes("h-full min-h-0 min-w-0 gap-0").style("flex:0 0 190px"):
                 projects_panel()
-            with ui.column().classes("h-full min-h-0 gap-0").style("flex:1"):
+            with ui.column().classes("h-full min-h-0 min-w-0 gap-0").style("flex:4 1 0"):
                 apps_panel()
-            with ui.column().classes("h-full min-h-0 gap-0").style("width:38%"):
+            with ui.column().classes("h-full min-h-0 min-w-0 gap-0").style("flex:5 1 0"):
                 run_panel()
 
         # Footer hints.

@@ -1318,20 +1318,13 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "nicegui", marker = "extra == 'dashboard'", specifier = ">=1.4" },
     { name = "pydantic", specifier = ">=2" },
     { name = "pyyaml", specifier = ">=6" },
-    { name = "textual", marker = "extra == 'terminal'", specifier = ">=0.60" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["terminal", "dashboard"]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "nicegui", specifier = ">=1.4" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "textual", specifier = ">=0.60" },
-]
+dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "stello-dashboard"

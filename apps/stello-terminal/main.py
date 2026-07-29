@@ -96,7 +96,7 @@ class StelloTUI(App):
 
     def on_mount(self) -> None:
         self._apply_theme()
-        self.title = "stello · control panel"
+        self.title = "stello"
 
         self.query_one("#projects", DataTable).add_columns("project")
         apps_table = self.query_one("#apps", DataTable)
