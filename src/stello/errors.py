@@ -52,3 +52,7 @@ class ApplicationNotFoundError(StelloError):
 
 class ArgumentError(StelloError):
     """An application argument override (`--set`) is malformed or invalid."""
+
+
+class MissingExtraError(StelloError):
+    """A built-in UI command needs an optional extra that isn't installed."""

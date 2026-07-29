@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import importlib
+from types import ModuleType
 from typing import Annotated, Optional
 
 import typer
 
 from stello import __version__, core, run as run_ops
-from stello.errors import ArgumentError, NoActiveProjectError, ProjectNotFoundError, StelloError
+from stello.errors import (
+    ArgumentError,
+    MissingExtraError,
+    NoActiveProjectError,
+    ProjectNotFoundError,
+    StelloError,
+)
 
 app = typer.Typer(
     name="stello",
@@ -151,6 +159,43 @@ def projects() -> None:
     for info in infos:
         marker = "*" if info.is_active else " "
         typer.echo(f"{marker} {info.name}")
+
+
+def _load_app(module_name: str, extra: str, package: str) -> ModuleType:
+    """Import a bundled UI app module, or raise a friendly 'install the extra' error.
+
+    Only a missing *extra* dependency (``package``) is turned into ``MissingExtraError``; an
+    ImportError from anything else is a real bug and re-raised as a normal traceback.
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ImportError as exc:
+        failed = exc.name or ""
+        if failed == package or failed.startswith(f"{package}."):
+            raise MissingExtraError(
+                f"The {extra!r} feature isn't installed. Install it with:\n"
+                f'    uv tool install "stello[{extra}]"\n'
+                f"(in a dev checkout: uv run --extra {extra} stello {extra})"
+            ) from exc
+        raise
+
+
+@app.command()
+def terminal(
+    theme: Annotated[str, typer.Option(help="Color theme: dark or light.")] = "dark",
+    compact: Annotated[bool, typer.Option(help="Denser tables.")] = False,
+) -> None:
+    """Launch the Textual TUI control panel (no project required)."""
+    _load_app("stello._apps.terminal", "terminal", "textual").run(theme=theme, compact=compact)
+
+
+@app.command()
+def dashboard(
+    port: Annotated[int, typer.Option(help="Port to serve the web UI on.")] = 8080,
+    theme: Annotated[str, typer.Option(help="Color theme: dark or light.")] = "dark",
+) -> None:
+    """Launch the NiceGUI web dashboard (no project required)."""
+    _load_app("stello._apps.dashboard", "dashboard", "nicegui").run(port=port, theme=theme)
 
 
 def run_cli() -> None:

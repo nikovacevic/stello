@@ -19,18 +19,38 @@ PATH. With those in place, install stello from git:
 uv tool install git+https://github.com/nikovacevic/stello.git
 ```
 
+To also get stello's built-in control panels (see below), install the `terminal` and/or
+`dashboard` extras:
+
+```bash
+uv tool install "stello[terminal,dashboard] @ git+https://github.com/nikovacevic/stello.git"
+```
+
 If the `stello` command isn't found afterward, add uv's bin dir to your PATH:
 
 ```bash
 uv tool update-shell
 ```
 
+### Control panels, built in
+
+Stello ships two control panels — `terminal`, a
+[Textual](https://textual.textualize.io/) TUI, and `dashboard`, a
+[NiceGUI](https://nicegui.io/) web UI — that browse your projects and list/launch their
+apps. They're built-in commands, so with the extras installed you can run them directly,
+no project required:
+
+```bash
+stello terminal        # Textual TUI  (needs the `terminal` extra)
+stello dashboard       # web UI        (needs the `dashboard` extra)
+```
+
 ### Try it: run stello with stello
 
-Stello is itself a stello project. Its declares two applications: `terminal`, a
-[Textual](https://textual.textualize.io/) TUI control panel, and `stello`, a
-[NiceGUI](https://nicegui.io/) browser-based control plane. Both browse projects and
-list/launch apps.
+Stello is itself a stello project — it dogfoods its own panels. Its `stello.yaml` declares
+those same two control panels as ordinary applications: `terminal` (the Textual TUI) and
+`stello` (the NiceGUI web UI). Running them this way, rather than via the built-in commands
+above, shows how stello runs *any* project's apps.
 
 First, initialize the project:
 

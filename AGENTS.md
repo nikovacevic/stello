@@ -70,6 +70,8 @@ or select projects.
 | `stello update --all` | Same, for every initialized project. |
 | `stello apps` | Read the active project's `stello.yaml` and report the runnable application names. |
 | `stello run <application_name> [--set NAME=VALUE ...]` | Look up the application in the active project's `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. |
+| `stello terminal [--theme ...] [--compact]` | Launch stello's built-in Textual TUI control panel in-process. No active project required; needs the `terminal` extra. |
+| `stello dashboard [--port ...] [--theme ...]` | Launch stello's built-in NiceGUI web dashboard in-process. No active project required; needs the `dashboard` extra. |
 
 Keep command semantics aligned with `agents/product.md`; if you change behavior here,
 update that file too.
@@ -82,7 +84,11 @@ update that file too.
   `init` / `projects` / `open` / `update` / `apps` / `run` commands.
 - **Dependencies:** keep stello's own footprint small. Its only required *external*
   tools are `git` and `uv`, which it invokes as subprocesses. Each application in the
-  remote repo carries its own dependencies, resolved by uv at run time.
+  remote repo carries its own dependencies, resolved by uv at run time. The built-in
+  `terminal` / `dashboard` panels ship in the package (`stello._apps`), but their heavy UI
+  deps (Textual, NiceGUI) are **optional extras** — `stello[terminal]`, `stello[dashboard]`
+  — so the base install stays lean. Those same modules also back the dogfood `terminal` /
+  `stello` apps under `apps/`, which are thin shims that import from `stello._apps`.
 - **Python version:** `requires-python` is floor-only (`>=3.11`) — do **not** add an upper
   cap preemptively; add `<3.X` only reactively if a real incompatibility (e.g. a lagging
   `pydantic-core` wheel) appears on a newer interpreter. `.python-version` pins a stable

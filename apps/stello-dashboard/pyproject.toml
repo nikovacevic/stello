@@ -1,7 +1,7 @@
 [project]
 name = "stello-dashboard"
 version = "0.1.0"
-description = "A NiceGUI control plane for stello projects — browse, open, update, and launch."
+description = "A NiceGUI control plane for stello projects."
 requires-python = ">=3.11"
 dependencies = [
     "nicegui>=1.4",
