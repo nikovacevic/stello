@@ -19,24 +19,84 @@ PATH. With those in place, install stello from git:
 uv tool install git+https://github.com/nikovacevic/stello.git
 ```
 
-If the `stello` command isn't found afterward, add uv's bin dir to your PATH:
+Run `stello` for a list of commands:
+
+```bash
+stello
+
+ Usage: stello [OPTIONS] COMMAND [ARGS]...
+
+ Publish, share, and run Python applications locally — no infrastructure to deploy.
+
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --version          Show the version and exit.                                                        │
+│ --help             Show this message and exit.                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────╮
+│ init      Clone a remote git repo as a new project.                                                  │
+│ update    Pull the latest `main` for a project (or all projects).                                    │
+│ run       Run an application from a project via `uv`.                                                │
+│ apps      List every application across all projects, as `<project>/<app>`.                          │
+│ projects  List initialized projects.                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+If the `stello` command isn't found after installing, add uv's bin dir to your PATH, and try again:
 
 ```bash
 uv tool update-shell
 ```
 
-### Control panels, as apps
+After `stello` is installed, the first step is to init a project:
 
-Stello has two control panels — `terminal`, a
-[Textual](https://textual.textualize.io/) TUI, and `dashboard`, a
-[NiceGUI](https://nicegui.io/) web UI — that browse your projects and list/launch their
-apps. They aren't special commands: they're just stello applications, declared in stello's
-own `stello.yaml`. Running them shows how stello runs *any* project's apps — including its
-own — and keeps the core install light (their Textual/NiceGUI deps live with the apps, not
-in `stello` itself).
+```bash
+stello init <project> <git_remote_url|local_git_directory>
+```
 
-Because stello is stateless, applications are addressed as `<project>/<app>`. So first
-initialize stello as a project, then run either panel:
+The project simply needs a `stello.yaml` file at its root, which describes one or more applications:
+
+```yaml
+  applications:
+    - name: model
+      dir: ./apps/model            # uv project root
+      script: ./src/model/main.py  # entrypoint, relative to dir
+      args:
+        - name: scenario
+          type: string
+          default: base
+        - name: verbose
+          type: bool
+          default: false
+    - name: webapp
+      dir: ./apps/ui
+      script: ./main.py
+```
+
+From there, you can list apps and run one:
+
+```bash
+stello apps
+```
+```bash
+stello run <project>/<application>
+```
+
+To pick up updates, as authors push to the underlying project repo, simply run update:
+
+```bash
+stello update <project>
+```
+
+We recommend starting by initializing the `stello` repo itself, which contains two control planes.
+
+### Run Stello Control Planes on Stello
+
+Stello has two control planes:
+1. `stello/terminal`, a [Textual](https://textual.textualize.io/) TUI
+2. `stello/dashboard`, a [NiceGUI](https://nicegui.io/) web UI
+
+Both browse your projects and list/launch their apps. Both are stello apps, declared in this repo's `stello.yaml` file, so
+you can either stick to the super-light CLI, or run one (or both) of the control planes with ease.
 
 ```bash
 stello init stello https://github.com/nikovacevic/stello.git
@@ -49,15 +109,9 @@ stello run stello/terminal
 stello run stello/dashboard
 ```
 
-From either panel you can browse projects and apps, select an app, and run it. Pass args
-with `--set` in `terminal` or using the controls in the dashboard:
+<img width="1994" height="1095" alt="Screenshot 2026-07-29 at 12 19 08 AM" src="https://github.com/user-attachments/assets/3268baee-d635-46a5-beaa-df237c7e654f" />
 
-```bash
-stello run stello/terminal --set theme=light
-stello run stello/dashboard --set port=9000
-```
-
-Everything the panels do is available directly on the CLI:
+Enjoy the control planes. But as a reminder, everything the panels do (and more) is available directly on the CLI:
 
 ```bash
 stello projects            # list initialized projects
