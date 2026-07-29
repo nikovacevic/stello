@@ -24,7 +24,7 @@ from pathlib import Path
 from stello import git, projects, run, uv
 from stello.errors import ApplicationNotFoundError, ManifestError
 from stello.manifest import find_application, load_manifest
-from stello.models import Application
+from stello.models import Application, Manifest
 
 
 @dataclass(frozen=True)
@@ -100,6 +100,18 @@ def list_all_apps() -> list[tuple[str, Application]]:
             continue
         pairs.extend((name, app) for app in apps)
     return pairs
+
+
+def describe_project(name: str) -> tuple[str, Manifest]:
+    """A project's current ref and its parsed manifest (for ``stello describe``)."""
+    path = projects.require_project(name)
+    return git.current_ref(path), load_manifest(path)
+
+
+def describe_app(project: str, app_name: str) -> tuple[str, Application]:
+    """A project's current ref and the named application (for ``stello describe``)."""
+    path = projects.require_project(project)
+    return git.current_ref(path), find_app(project, app_name)
 
 
 def find_app(project: str, app_name: str) -> Application:

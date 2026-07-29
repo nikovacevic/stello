@@ -26,6 +26,23 @@ applications:
 """
 
 
+DESCRIBED_MANIFEST = """
+description: Shared team apps.
+applications:
+  - name: hello
+    description: Greets the world.
+    dir: ./app
+    script: ./main.py
+    args:
+      - name: name
+        description: Who to greet.
+        default: world
+      - name: loud
+        type: bool
+        default: false
+"""
+
+
 @pytest.fixture(autouse=True)
 def home(tmp_path, monkeypatch):
     monkeypatch.setenv(paths.HOME_ENV_VAR, str(tmp_path / "home"))
@@ -182,6 +199,49 @@ def test_update_all_with_project_name_errors(make_origin):
     result = runner.invoke(cli.app, ["update", "model", "--all"])
     assert result.exit_code != 0
     assert isinstance(result.exception, ArgumentError)
+
+
+def test_describe_project(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=DESCRIBED_MANIFEST))])
+    result = runner.invoke(cli.app, ["describe", "model"])
+    assert result.exit_code == 0, result.output
+    assert "model [main]" in result.output
+    assert "Shared team apps." in result.output
+    assert "Applications:" in result.output
+    assert "hello — Greets the world." in result.output
+
+
+def test_describe_app(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=DESCRIBED_MANIFEST))])
+    result = runner.invoke(cli.app, ["describe", "model/hello"])
+    assert result.exit_code == 0, result.output
+    assert "hello — in model [main]" in result.output
+    assert "Greets the world." in result.output
+    assert "dir:    ./app" in result.output
+    assert "script: ./main.py" in result.output
+    assert "name (string, default: world) — Who to greet." in result.output
+    assert "loud (bool, default: false) — (no description)" in result.output
+
+
+def test_describe_missing_description_shows_placeholder(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=APP_MANIFEST))])
+    result = runner.invoke(cli.app, ["describe", "model"])
+    assert result.exit_code == 0, result.output
+    assert "(no description)" in result.output
+
+
+def test_describe_unknown_project_errors(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=DESCRIBED_MANIFEST))])
+    result = runner.invoke(cli.app, ["describe", "ghost"])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ProjectNotFoundError)
+
+
+def test_describe_unknown_app_errors(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(manifest=DESCRIBED_MANIFEST))])
+    result = runner.invoke(cli.app, ["describe", "model/ghost"])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ApplicationNotFoundError)
 
 
 def test_run_cli_reports_stello_error(monkeypatch, capsys):

@@ -16,6 +16,19 @@ applications:
         default: false
 """
 
+DESCRIBED_MANIFEST = """
+description: Shared team apps.
+applications:
+  - name: hello
+    description: Greets the world.
+    dir: ./app
+    script: ./main.py
+    args:
+      - name: name
+        description: Who to greet.
+        default: world
+"""
+
 
 @pytest.fixture(autouse=True)
 def home(tmp_path, monkeypatch):
@@ -160,3 +173,25 @@ def test_list_refs_reports_branches_tags_and_current(make_origin):
     assert listing.current == "main"
     assert listing.branches == ["beta", "main"]
     assert listing.tags == ["v1.0.0"]
+
+
+def test_describe_project_returns_ref_and_manifest(make_origin):
+    core.add_project("model", str(make_origin(manifest=DESCRIBED_MANIFEST)))
+    ref, manifest = core.describe_project("model")
+    assert ref == "main"
+    assert manifest.description == "Shared team apps."
+    assert [a.name for a in manifest.applications] == ["hello"]
+
+
+def test_describe_app_returns_ref_and_application(make_origin):
+    core.add_project("model", str(make_origin(manifest=DESCRIBED_MANIFEST)))
+    ref, application = core.describe_app("model", "hello")
+    assert ref == "main"
+    assert application.description == "Greets the world."
+    assert application.args[0].description == "Who to greet."
+
+
+def test_describe_app_unknown_raises(make_origin):
+    core.add_project("model", str(make_origin(manifest=DESCRIBED_MANIFEST)))
+    with pytest.raises(ApplicationNotFoundError):
+        core.describe_app("model", "ghost")

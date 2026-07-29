@@ -34,6 +34,7 @@ class Arg(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    description: str | None = None
     type: ArgType = ArgType.STRING
     default: Any
 
@@ -59,6 +60,7 @@ class Application(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    description: str | None = None
     dir: str
     script: str
     args: list[Arg] = []
@@ -101,6 +103,7 @@ class Manifest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    description: str | None = None
     applications: list[Application] = []
 
     @model_validator(mode="after")
