@@ -113,7 +113,51 @@ def test_update_project_by_name(make_origin):
     runner.invoke(cli.app, ["init", "model", str(make_origin())])
     result = runner.invoke(cli.app, ["update", "model"])
     assert result.exit_code == 0, result.output
-    assert "Updated 'model'." in result.output
+    assert "Updated 'model' (main)." in result.output
+
+
+def test_update_with_ref_switches(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(branch="beta", tag="v1.0.0"))])
+
+    result = runner.invoke(cli.app, ["update", "model", "--ref", "beta"])
+    assert result.exit_code == 0, result.output
+    assert "Updated 'model' (beta)." in result.output
+
+    result = runner.invoke(cli.app, ["update", "model", "--ref", "v1.0.0"])
+    assert result.exit_code == 0, result.output
+    assert "Updated 'model' (v1.0.0)." in result.output
+
+
+def test_update_all_with_ref_errors(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin())])
+    result = runner.invoke(cli.app, ["update", "--all", "--ref", "beta"])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ArgumentError)
+
+
+def test_projects_shows_ref(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin())])
+    result = runner.invoke(cli.app, ["projects"])
+    assert result.exit_code == 0, result.output
+    assert "model [main]" in result.output
+
+
+def test_refs_lists_and_marks_current(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin(branch="beta", tag="v1.0.0"))])
+    result = runner.invoke(cli.app, ["refs", "model"])
+    assert result.exit_code == 0, result.output
+    assert "Branches:" in result.output
+    assert "* main" in result.output  # current ref marked
+    assert "  beta" in result.output
+    assert "Tags:" in result.output
+    assert "  v1.0.0" in result.output
+
+
+def test_refs_unknown_project_errors(make_origin):
+    runner.invoke(cli.app, ["init", "model", str(make_origin())])
+    result = runner.invoke(cli.app, ["refs", "ghost"])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ProjectNotFoundError)
 
 
 def test_update_all(make_origin):
