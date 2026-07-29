@@ -1,0 +1,11 @@
+applications:
+  - name: dashboard
+    dir: ./apps/dashboard
+    script: ./main.py
+    args:
+      - name: theme
+        type: string
+        default: dark
+      - name: compact
+        type: bool
+        default: false

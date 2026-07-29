@@ -18,3 +18,24 @@ implemented incrementally.
 ```bash
 uv run stello --help
 ```
+
+## Try it: run stello with stello
+
+Stello is itself a stello project — the repo root has a `stello.yaml` declaring a
+`dashboard` application (a [Textual](https://textual.textualize.io/) control panel that
+introspects the project it lives in). You can run it through stello:
+
+```bash
+stello init stello /path/to/this/repo   # a local path works as a git remote
+stello run dashboard
+```
+
+The dashboard reuses stello's own manifest parser, and its uv project depends on stello
+via a `../..` path source — so when the project is cloned into `~/.stello/projects/stello`,
+it builds stello from that clone, not from your dev checkout.
+
+During development you can also launch it directly:
+
+```bash
+uv run --directory apps/dashboard main.py --theme light
+```

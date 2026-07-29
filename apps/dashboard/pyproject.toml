@@ -1,0 +1,15 @@
+[project]
+name = "stello-dashboard"
+version = "0.1.0"
+description = "A Textual control panel for a stello project — stello's own dogfood app."
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.60",
+    "stello",
+]
+
+[tool.uv.sources]
+# Resolves to the project repo root. When this project is cloned into
+# ~/.stello/projects/stello and run via `stello run dashboard`, `../..` points at
+# that clone's root — so the dashboard builds stello from the clone, not a dev checkout.
+stello = { path = "../..", editable = true }
