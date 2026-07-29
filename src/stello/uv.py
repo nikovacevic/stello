@@ -17,14 +17,15 @@ from stello.errors import UvError
 UV = "uv"
 
 
-def run_app(directory: Path, script: str, args: Sequence[str]) -> int:
-    """Run ``script`` (relative to ``directory``) via uv, returning its exit code.
+def command(directory: Path, script: str, args: Sequence[str]) -> list[str]:
+    """Build the argv for running ``script`` (relative to ``directory``) via uv."""
+    return [UV, "run", "--directory", str(directory), script, *args]
 
-    Roughly ``uv run --directory <directory> <script> <args...>``.
-    """
-    cmd = [UV, "run", "--directory", str(directory), script, *args]
+
+def run_app(directory: Path, script: str, args: Sequence[str]) -> int:
+    """Run ``script`` (relative to ``directory``) via uv, returning its exit code."""
     try:
-        result = subprocess.run(cmd, check=False)
+        result = subprocess.run(command(directory, script, args), check=False)
     except FileNotFoundError as exc:
         raise UvError("`uv` is not installed or not on your PATH.") from exc
     return result.returncode

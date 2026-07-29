@@ -1,0 +1,13 @@
+[project]
+name = "stello-control-plane"
+version = "0.1.0"
+description = "A NiceGUI control plane for stello projects — browse, open, update, and launch."
+requires-python = ">=3.11"
+dependencies = [
+    "nicegui>=1.4",
+    "stello",
+]
+
+[tool.uv.sources]
+# Resolves to the project repo root; a cloned project builds stello from its own clone.
+stello = { path = "../..", editable = true }

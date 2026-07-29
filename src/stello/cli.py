@@ -1,21 +1,13 @@
-"""Stello CLI command tree."""
+"""Stello CLI command tree — a thin view over :mod:`stello.core`."""
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from stello import __version__, config, git, projects as project_ops, run as run_args, uv
-from stello.errors import (
-    ApplicationNotFoundError,
-    ArgumentError,
-    NoActiveProjectError,
-    ProjectNotFoundError,
-    StelloError,
-)
-from stello.manifest import find_application, load_manifest
+from stello import __version__, core, run as run_ops
+from stello.errors import ArgumentError, NoActiveProjectError, ProjectNotFoundError, StelloError
 
 app = typer.Typer(
     name="stello",
@@ -43,7 +35,7 @@ def main(
 
 def _select_project_interactively() -> str:
     """Prompt the user to pick an initialized project, then make it active."""
-    available = project_ops.list_projects()
+    available = [p.name for p in core.list_projects()]
     if not available:
         raise NoActiveProjectError(
             "No active project is set and none are initialized. "
@@ -64,23 +56,18 @@ def _select_project_interactively() -> str:
     else:
         raise ProjectNotFoundError(f"No initialized project named {choice!r}.")
 
-    config.set_active_project(selected)
+    core.set_active(selected)
     typer.echo(f"Active project set to {selected!r}.", err=True)
     return selected
 
 
-def _active_project() -> tuple[str, Path]:
-    """Resolve the active project, prompting for a selection if none is set."""
-    name = config.active_project()
+def _active_project() -> str:
+    """Resolve the active project name, prompting for a selection if none is set."""
+    name = core.active_project()
     if name is None:
         name = _select_project_interactively()
-    path = project_ops.project_path(name)
-    if not git.is_git_repo(path):
-        raise ProjectNotFoundError(
-            f"Active project {name!r} is not an initialized git repository ({path}). "
-            f"Run `stello open <project_name>` or `stello init`."
-        )
-    return name, path
+    core.project_path(name)  # validates it's still an initialized project
+    return name
 
 
 @app.command()
@@ -89,8 +76,7 @@ def init(
     remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone (must have a `main` branch).")],
 ) -> None:
     """Clone a remote git repo as a new project and activate it."""
-    project_ops.add_project(project_name, remote_git_url)
-    config.set_active_project(project_name)
+    core.add_project(project_name, remote_git_url)
     typer.echo(f"Initialized project {project_name!r} and set it active.")
 
 
@@ -99,8 +85,7 @@ def open_project(
     project_name: Annotated[str, typer.Argument(help="Project to activate.")],
 ) -> None:
     """Set the active project."""
-    project_ops.require_project(project_name)
-    config.set_active_project(project_name)
+    core.set_active(project_name)
     typer.echo(f"Active project set to {project_name!r}.")
 
 
@@ -117,23 +102,16 @@ def update(
         raise ArgumentError("Cannot combine --all with a project name.")
 
     if all_:
-        names = project_ops.list_projects()
+        names = core.update_all()
         if not names:
             typer.echo("No projects to update.", err=True)
             return
         for name in names:
-            git.fetch_and_reset(project_ops.project_path(name))
             typer.echo(f"Updated {name!r}.")
         return
 
-    if project_name:
-        path = project_ops.require_project(project_name)
-        git.fetch_and_reset(path)
-        typer.echo(f"Updated {project_name!r}.")
-        return
-
-    name, path = _active_project()
-    git.fetch_and_reset(path)
+    name = project_name or _active_project()
+    core.update_project(name)
     typer.echo(f"Updated {name!r}.")
 
 
@@ -146,44 +124,33 @@ def run(
     ] = None,
 ) -> None:
     """Run an application from the active project via `uv`."""
-    _, path = _active_project()
-    manifest = load_manifest(path)
-    application = find_application(manifest, application_name)
-    if application is None:
-        available = ", ".join(a.name for a in manifest.applications) or "(none)"
-        raise ApplicationNotFoundError(
-            f"No application named {application_name!r}. Available: {available}."
-        )
-
-    overrides = run_args.parse_overrides(set_)
-    argv = run_args.resolve_args(application, overrides)
-    exit_code = uv.run_app(application.resolved_dir(path), application.script, argv)
+    name = _active_project()
+    overrides = run_ops.parse_overrides(set_)
+    exit_code = core.run_app(name, application_name, overrides)
     raise typer.Exit(exit_code)
 
 
 @app.command()
 def apps() -> None:
     """List the applications in the active project."""
-    _, path = _active_project()
-    manifest = load_manifest(path)
-    if not manifest.applications:
+    applications = core.apps_for(_active_project())
+    if not applications:
         typer.echo("No applications defined in this project's stello.yaml.", err=True)
         return
-    for application in manifest.applications:
+    for application in applications:
         typer.echo(application.name)
 
 
 @app.command()
 def projects() -> None:
     """List initialized projects, marking the active one with `*`."""
-    names = project_ops.list_projects()
-    if not names:
+    infos = core.list_projects()
+    if not infos:
         typer.echo("No projects initialized. Run `stello init <project_name> <remote_git_url>`.", err=True)
         return
-    active = config.active_project()
-    for name in names:
-        marker = "*" if name == active else " "
-        typer.echo(f"{marker} {name}")
+    for info in infos:
+        marker = "*" if info.is_active else " "
+        typer.echo(f"{marker} {info.name}")
 
 
 def run_cli() -> None:

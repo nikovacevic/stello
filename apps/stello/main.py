@@ -8,8 +8,9 @@ It reuses stello's own library to:
 - and set the active project (press ``o`` — the same effect as ``stello open``).
 
 Browsing is non-destructive: arrowing through projects only previews them. Only ``o``
-changes the active project in ``config.yaml``. The Run button starts the selected app via
-``uv run`` (detached), composing its args from the on-screen controls.
+changes the active project in ``config.yaml``. The Run button launches the selected app
+as a supervised child (via ``core.launch_supervised``) and streams its output into the log
+panel, composing its args from the on-screen controls.
 
 It receives its own declared args (``--theme``, ``--compact``) from stello, which is how
 stello hands declared args to any application.
@@ -19,17 +20,14 @@ from __future__ import annotations
 
 import argparse
 import shlex
-import subprocess
 from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, Label, Log, Static
 
-from stello import config, projects
-from stello.manifest import load_manifest
+from stello import core
 from stello.models import Application, ArgType
-from stello.run import resolve_args
 
 SELF_SCRIPT = Path(__file__).resolve()
 
@@ -66,12 +64,16 @@ class StelloTUI(App):
         super().__init__()
         self.theme_name = theme_name
         self.compact = compact
-        self.project_names: list[str] = projects.list_projects()
+        self.project_names: list[str] = [p.name for p in core.list_projects()]
         self.current_project: str | None = None
         self.current_project_path: Path | None = None
         self.apps: list[Application] = []
         self.selected: Application | None = None
         self.load_error: str | None = None
+        # Supervised launches whose output we stream into the #output log.
+        self._supervised: list[core.LaunchedProcess] = []
+        self._pushed: dict[int, int] = {}
+        self._exited: set[int] = set()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -109,18 +111,19 @@ class StelloTUI(App):
 
         self._populate_projects()
         # Start on the active project if there is one, else the first.
-        active = config.active_project()
+        active = core.active_project()
         initial = active if active in self.project_names else self.project_names[0]
         self._load_project(initial)
         self._move_cursor("#projects", self.project_names.index(initial))
+        self.set_interval(0.5, self._stream_logs)
 
     # --- data loading -----------------------------------------------------
 
     def _load_project(self, name: str) -> None:
         self.current_project = name
-        self.current_project_path = projects.project_path(name)
         try:
-            self.apps = load_manifest(self.current_project_path).applications
+            self.current_project_path = core.project_path(name)
+            self.apps = core.apps_for(name)
             self.load_error = None
         except Exception as exc:  # surface manifest problems, don't crash
             self.apps = []
@@ -146,7 +149,7 @@ class StelloTUI(App):
     def _populate_projects(self) -> None:
         table = self.query_one("#projects", DataTable)
         table.clear()
-        active = config.active_project()
+        active = core.active_project()
         for name in self.project_names:
             marker = "*" if name == active else " "
             table.add_row(f"{marker} {name}", key=name)
@@ -219,40 +222,48 @@ class StelloTUI(App):
     def action_open_project(self) -> None:
         if not self.current_project:
             return
-        config.set_active_project(self.current_project)
+        core.set_active(self.current_project)
         self._populate_projects()  # refresh the `*` marker
         self._move_cursor("#projects", self.project_names.index(self.current_project))
         self._notify(f"Opened '{self.current_project}' — now the active project")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id != "run" or self.selected is None or self.current_project_path is None:
+        if event.button.id != "run" or self.selected is None or self.current_project is None:
             return
         app = self.selected
         output = self.query_one("#output", Log)
+        overrides = self._collect_overrides(app)
         try:
-            argv = resolve_args(app, self._collect_overrides(app))
+            cmd = core.command_for(self.current_project, app.name, overrides)
         except Exception as exc:
             output.write_line(f"! {exc}")
             return
-        cmd = ["uv", "run", "--directory", str(app.resolved_dir(self.current_project_path)), app.script, *argv]
         output.write_line(f"$ {' '.join(shlex.quote(part) for part in cmd)}")
 
-        if app.resolved_script(self.current_project_path) == SELF_SCRIPT:
+        if self.current_project_path and app.resolved_script(self.current_project_path) == SELF_SCRIPT:
             output.write_line("  (skipped) refusing to launch the TUI from itself")
             return
         try:
-            # Detached so the child (e.g. a web server) outlives this event and
-            # doesn't fight the TUI for the terminal.
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+            proc = core.launch_supervised(self.current_project, app.name, overrides)
         except Exception as exc:
             output.write_line(f"  ! failed to launch: {exc}")
             return
-        output.write_line(f"  launched {app.name} in {self.current_project} (pid {proc.pid})")
+        self._supervised.append(proc)
+        output.write_line(f"  launched {app.name} (pid {proc.pid}) — streaming output:")
+
+    def _stream_logs(self) -> None:
+        """Poll supervised processes and push new output/exit lines into the log."""
+        output = self.query_one("#output", Log)
+        for proc in self._supervised:
+            lines = proc.lines()
+            seen = self._pushed.get(id(proc), 0)
+            if len(lines) > seen:
+                for line in lines[seen:]:
+                    output.write_line(f"[{proc.label}] {line}")
+                self._pushed[id(proc)] = len(lines)
+            if not proc.is_running() and id(proc) not in self._exited:
+                self._exited.add(id(proc))
+                output.write_line(f"[{proc.label}] (exited {proc.returncode})")
 
     def _collect_overrides(self, app: Application) -> dict[str, str]:
         overrides: dict[str, str] = {}

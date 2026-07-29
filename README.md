@@ -28,20 +28,22 @@ uv tool update-shell
 ### Try it: run stello with stello
 
 Stello is itself a stello project — its repo root declares two applications: `stello`, a
-[Textual](https://textual.textualize.io/) control panel that introspects the project it
-lives in, and `webui`, a minimal browser UI. Initialize it as a project, then run the TUI:
+[Textual](https://textual.textualize.io/) TUI control panel, and `control-plane`, a
+[NiceGUI](https://nicegui.io/) browser-based control plane. Both browse projects and
+list/launch apps. Initialize the project, then run the TUI:
 
 ```bash
 stello init stello https://github.com/nikovacevic/stello.git
 stello run stello
 ```
 
-From the Stello TUI, select an app and press **Run** to launch it — pick `webui` to open the web
-app in your browser. You can also run either app directly, passing args with `--set`:
+From the Stello TUI, select an app and press **Run** to launch it — pick `control-plane`
+to open the web control plane in your browser. You can also run either app directly,
+passing args with `--set`:
 
 ```bash
 stello run stello --set theme=light
-stello run webui --set name=you --set port=9000
+stello run control-plane --set port=9000
 ```
 
 Inspect and update your projects:
