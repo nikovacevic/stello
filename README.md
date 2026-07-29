@@ -27,8 +27,8 @@ uv tool update-shell
 
 ### Try it: run stello with stello
 
-Stello is itself a stello project. Its declares two applications: `stello`, a
-[Textual](https://textual.textualize.io/) TUI control panel, and `control-plane`, a
+Stello is itself a stello project. Its declares two applications: `terminal`, a
+[Textual](https://textual.textualize.io/) TUI control panel, and `stello`, a
 [NiceGUI](https://nicegui.io/) browser-based control plane. Both browse projects and
 list/launch apps.
 

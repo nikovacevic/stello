@@ -7,11 +7,11 @@ Planned work, not yet started. Move items into the code (and delete them here) a
 
 - **TUI: clean up background processes on exit** — supervised launches (`core.launch_supervised`)
   are children of the TUI, but on quit they should be gracefully terminated (and potentially
-  force-killed if they don't stop) rather than left dangling. See `apps/stello/main.py`.
+  force-killed if they don't stop) rather than left dangling. See `apps/stello-terminal/main.py`.
 
 - **TUI: update projects with a keystroke** — add a binding (e.g. `u`) that runs
   `core.update_project` on the browsed project (and maybe a shortcut for `core.update_all`),
-  mirroring the control-plane's Update buttons. See `apps/stello/main.py`.
+  mirroring the stello web app's Update buttons. See `apps/stello-terminal/main.py`.
 
-- **Control-plane: rework the UI** — `apps/control-plane/main.py` is functional but spare and
+- **Stello web app: rework the UI** — `apps/stello-dashboard/main.py` is functional but spare and
   clunky. Improve the layout, visual hierarchy, and interaction feel.

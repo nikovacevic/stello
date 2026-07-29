@@ -1327,7 +1327,7 @@ requires-dist = [
 dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
-name = "stello-control-plane"
+name = "stello-dashboard"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

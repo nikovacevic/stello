@@ -1,5 +1,5 @@
 [project]
-name = "stello-control-plane"
+name = "stello-dashboard"
 version = "0.1.0"
 description = "A NiceGUI control plane for stello projects — browse, open, update, and launch."
 requires-python = ">=3.11"

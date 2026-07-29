@@ -1,6 +1,6 @@
 applications:
-  - name: stello
-    dir: ./apps/stello
+  - name: terminal
+    dir: ./apps/stello-terminal
     script: ./main.py
     args:
       - name: theme
@@ -9,8 +9,8 @@ applications:
       - name: compact
         type: bool
         default: false
-  - name: control-plane
-    dir: ./apps/control-plane
+  - name: stello
+    dir: ./apps/stello-dashboard
     script: ./main.py
     args:
       - name: port

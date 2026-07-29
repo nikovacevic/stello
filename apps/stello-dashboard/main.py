@@ -1,12 +1,12 @@
 """Stello Control Plane — a NiceGUI web UI for all your stello projects.
 
-A browser-based counterpart to the `stello` TUI, and like it, a thin view over
+A browser-based counterpart to the `terminal` TUI, and like it, a thin view over
 ``stello.core``: it browses initialized projects, opens (activates) them, updates them,
 and lists/launches their applications. Launched apps run as detached processes; this
 scaffold reports the PID and tracks them in a simple "Running" panel (streaming logs and
 richer supervision are a later phase).
 
-Run it as a stello application:  ``stello run control-plane``  (or ``--set port=9000``).
+Run it as a stello application:  ``stello run stello``  (or ``--set port=9000``).
 
 Set STELLO_CP_NO_SHOW=1 to not auto-open a browser (used by tests).
 """
