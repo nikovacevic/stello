@@ -11,11 +11,11 @@ stello's own library, which it lists as a dependency, and it:
 The Run button launches the selected app as a supervised child (via ``core.launch_supervised``)
 and streams its output into the log panel, composing its args from the on-screen controls.
 
-It also manages projects' git state, mirroring the ``stello`` CLI: ``u`` updates the
-highlighted project (fetch, then advance its current ref), ``i`` opens a dialog to init a new
-project from a remote URL (with an optional ref), and ``r`` lists a project's branches and
-tags so you can switch to one. These git calls run on worker threads so the UI stays
-responsive during a fetch or clone.
+It also manages projects, mirroring the ``stello`` CLI: ``u`` updates the highlighted project
+(fetch, then advance its current ref), ``i`` opens a dialog to install a new project from a
+remote URL (with an optional ref), ``r`` removes the highlighted project (after a confirm), and
+``f`` lists a project's branches and tags so you can switch to one. These git/filesystem calls
+run on worker threads so the UI stays responsive during a fetch, clone, or delete.
 
 It receives its own declared args (``--theme``, ``--compact``) from stello, which is how
 stello hands declared args to any application.
@@ -48,16 +48,16 @@ def _args_summary(app: Application) -> str:
     return ", ".join(f"{a.name}:{a.type.value}={a.default}" for a in app.args)
 
 
-class InitScreen(ModalScreen[tuple[str, str, str | None] | None]):
-    """Centered dialog to initialize a project: name, git remote URL, and an optional ref.
+class InstallScreen(ModalScreen[tuple[str, str, str | None] | None]):
+    """Centered dialog to install a project: name, git remote URL, and an optional ref.
 
-    Dismisses with ``(name, url, ref_or_None)`` on Create, or ``None`` on Cancel/Escape.
+    Dismisses with ``(name, url, ref_or_None)`` on Install, or ``None`` on Cancel/Escape.
     """
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
     CSS = """
-    InitScreen { align: center middle; }
+    InstallScreen { align: center middle; }
     #dialog { width: 64; height: auto; padding: 1 2; border: thick $panel; background: $surface; }
     #dialog Label.title { text-style: bold; padding-bottom: 1; }
     #dialog Input { margin-bottom: 1; }
@@ -65,23 +65,23 @@ class InitScreen(ModalScreen[tuple[str, str, str | None] | None]):
     #dialog-buttons Button { margin-left: 2; }
     """
 
-    _FIELDS = ("init-name", "init-url", "init-ref")
+    _FIELDS = ("install-name", "install-url", "install-ref")
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
-            yield Label("Initialize a project", classes="title")
-            yield Input(placeholder="project name", id="init-name")
-            yield Input(placeholder="git remote URL", id="init-url")
-            yield Input(placeholder="ref — optional, defaults to the remote's default branch", id="init-ref")
+            yield Label("Install a project", classes="title")
+            yield Input(placeholder="project name", id="install-name")
+            yield Input(placeholder="git remote URL", id="install-url")
+            yield Input(placeholder="ref — optional, defaults to the remote's default branch", id="install-ref")
             with Horizontal(id="dialog-buttons"):
-                yield Button("Create", id="create", variant="success")
+                yield Button("Install", id="install", variant="success")
                 yield Button("Cancel", id="cancel")
 
     def on_mount(self) -> None:
-        self.query_one("#init-name", Input).focus()
+        self.query_one("#install-name", Input).focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "create":
+        if event.button.id == "install":
             self._submit()
         elif event.button.id == "cancel":
             self.dismiss(None)
@@ -98,9 +98,9 @@ class InitScreen(ModalScreen[tuple[str, str, str | None] | None]):
         self.dismiss(None)
 
     def _submit(self) -> None:
-        name = self.query_one("#init-name", Input).value.strip()
-        url = self.query_one("#init-url", Input).value.strip()
-        ref = self.query_one("#init-ref", Input).value.strip()
+        name = self.query_one("#install-name", Input).value.strip()
+        url = self.query_one("#install-url", Input).value.strip()
+        ref = self.query_one("#install-ref", Input).value.strip()
         if not name or not url:
             self.app.notify("Name and git remote URL are required.", severity="warning")
             return
@@ -188,6 +188,38 @@ class RefsScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class ConfirmScreen(ModalScreen[bool]):
+    """A small centered yes/no dialog for a destructive action. Dismisses with a bool."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    CSS = """
+    ConfirmScreen { align: center middle; }
+    #dialog { width: 60; height: auto; padding: 1 2; border: thick $panel; background: $surface; }
+    #dialog Label.title { padding-bottom: 1; }
+    #dialog-buttons { height: auto; align: right middle; }
+    #dialog-buttons Button { margin-left: 2; }
+    """
+
+    def __init__(self, message: str, confirm_label: str = "Confirm") -> None:
+        super().__init__()
+        self.message = message
+        self.confirm_label = confirm_label
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Label(self.message, classes="title")
+            with Horizontal(id="dialog-buttons"):
+                yield Button(self.confirm_label, id="confirm", variant="error")
+                yield Button("Cancel", id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "confirm")
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
+
 class StelloTUI(App):
     """A control panel for the stello projects on this machine."""
 
@@ -208,8 +240,9 @@ class StelloTUI(App):
 
     BINDINGS = [
         ("u", "update_project", "Update"),
-        ("i", "init_project", "Init"),
-        ("r", "show_refs", "Refs"),
+        ("i", "install_project", "Install"),
+        ("r", "remove_project", "Remove"),
+        ("f", "show_refs", "Refs"),
         ("q", "quit", "Quit"),
     ]
 
@@ -444,45 +477,84 @@ class StelloTUI(App):
         self._notify(f"Updated {name!r} ({current}).")
         self._refresh_projects(select=name)
 
-    # --- init -------------------------------------------------------------
+    # --- install ----------------------------------------------------------
 
-    def action_init_project(self) -> None:
-        """`i` — open the init dialog, then clone the given remote as a new project."""
-        self.push_screen(InitScreen(), self._on_init_result)
+    def action_install_project(self) -> None:
+        """`i` — open the install dialog, then clone the given remote as a new project."""
+        self.push_screen(InstallScreen(), self._on_install_result)
 
-    def _on_init_result(self, result: tuple[str, str, str | None] | None) -> None:
+    def _on_install_result(self, result: tuple[str, str, str | None] | None) -> None:
         if not result:
             return
         name, url, ref = result
-        self._notify(f"Initializing {name!r} …")
+        self._notify(f"Installing {name!r} …")
         at_ref = f" at {ref}" if ref else ""
-        self.query_one("#output", Log).write_line(f"· initializing {name!r} from {url}{at_ref} …")
-        self._run_init(name, url, ref)
+        self.query_one("#output", Log).write_line(f"· installing {name!r} from {url}{at_ref} …")
+        self._run_install(name, url, ref)
 
     @work(thread=True)
-    def _run_init(self, name: str, url: str, ref: str | None) -> None:
+    def _run_install(self, name: str, url: str, ref: str | None) -> None:
         """Run the (blocking) clone/checkout off the UI thread."""
         try:
             core.add_project(name, url, ref=ref)
-            self.call_from_thread(self._on_init_done, name, None)
+            self.call_from_thread(self._on_install_done, name, None)
         except Exception as exc:  # bad name/url/ref — core cleans up a partial checkout
-            self.call_from_thread(self._on_init_done, name, str(exc))
+            self.call_from_thread(self._on_install_done, name, str(exc))
 
-    def _on_init_done(self, name: str, error: str | None) -> None:
+    def _on_install_done(self, name: str, error: str | None) -> None:
         output = self.query_one("#output", Log)
         if error:
-            output.write_line(f"  ! init failed: {error}")
-            self._notify(f"Init failed: {error}")
+            output.write_line(f"  ! install failed: {error}")
+            self._notify(f"Install failed: {error}")
             return
         current = core.current_ref(name)
-        output.write_line(f"  initialized {name!r} ({current})")
-        self._notify(f"Initialized {name!r} ({current}).")
+        output.write_line(f"  installed {name!r} ({current})")
+        self._notify(f"Installed {name!r} ({current}).")
         self._refresh_projects(select=name)
+
+    # --- remove -----------------------------------------------------------
+
+    def action_remove_project(self) -> None:
+        """`r` — confirm, then delete the highlighted project's local clone."""
+        name = self.current_project
+        if not name:
+            self._notify("No project highlighted to remove.")
+            return
+        self.push_screen(
+            ConfirmScreen(f"Remove project {name!r}? This deletes its local clone.", confirm_label="Remove"),
+            lambda ok: self._on_remove_confirmed(name, ok),
+        )
+
+    def _on_remove_confirmed(self, name: str, confirmed: bool) -> None:
+        if not confirmed:
+            return
+        self._notify(f"Removing {name!r} …")
+        self.query_one("#output", Log).write_line(f"· removing {name!r} …")
+        self._run_remove(name)
+
+    @work(thread=True)
+    def _run_remove(self, name: str) -> None:
+        """Run the (blocking) directory delete off the UI thread."""
+        try:
+            core.remove_project(name)
+            self.call_from_thread(self._on_remove_done, name, None)
+        except Exception as exc:
+            self.call_from_thread(self._on_remove_done, name, str(exc))
+
+    def _on_remove_done(self, name: str, error: str | None) -> None:
+        output = self.query_one("#output", Log)
+        if error:
+            output.write_line(f"  ! remove failed: {error}")
+            self._notify(f"Remove failed: {error}")
+            return
+        output.write_line(f"  removed {name!r}")
+        self._notify(f"Removed {name!r}.")
+        self._refresh_projects()
 
     # --- refs -------------------------------------------------------------
 
     def action_show_refs(self) -> None:
-        """`r` — pick a branch/tag for the highlighted project and switch to it."""
+        """`f` — pick a branch/tag for the highlighted project and switch to it."""
         name = self.current_project
         if not name:
             self._notify("No project highlighted.")

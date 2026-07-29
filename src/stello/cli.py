@@ -35,7 +35,7 @@ def main(
 
 
 @app.command()
-def init(
+def install(
     project_name: Annotated[str, typer.Argument(help="Name for the new local project.")],
     remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone.")],
     ref: Annotated[
@@ -43,9 +43,22 @@ def init(
         typer.Option("--ref", help="Start on this branch, tag, or commit instead of the default branch."),
     ] = None,
 ) -> None:
-    """Clone a remote git repo as a new project."""
+    """Clone a remote git repo and install it as a new project."""
     info = core.add_project(project_name, remote_git_url, ref=ref)
-    typer.echo(f"Initialized project {project_name!r} ({info.ref}).")
+    typer.echo(f"Installed project {project_name!r} ({info.ref}).")
+
+
+@app.command()
+def remove(
+    project_name: Annotated[str, typer.Argument(help="Project to remove.")],
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the confirmation prompt.")] = False,
+) -> None:
+    """Remove an initialized project, deleting its local clone."""
+    path = core.project_path(project_name)  # raises ProjectNotFoundError if it isn't a project
+    if not yes:
+        typer.confirm(f"Remove project {project_name!r} ({path})?", abort=True)
+    core.remove_project(project_name)
+    typer.echo(f"Removed project {project_name!r}.")
 
 
 @app.command()
@@ -110,7 +123,7 @@ def apps() -> None:
     """List every application across all projects, as `<project>/<app>`."""
     pairs = core.list_all_apps()
     if not pairs:
-        typer.echo("No applications found. Run `stello init <project_name> <remote_git_url>`.", err=True)
+        typer.echo("No applications found. Run `stello install <project_name> <remote_git_url>`.", err=True)
         return
     for project, application in pairs:
         typer.echo(f"{project}/{application.name}")
@@ -176,7 +189,7 @@ def projects() -> None:
     """List initialized projects and the ref each is on."""
     infos = core.list_projects()
     if not infos:
-        typer.echo("No projects initialized. Run `stello init <project_name> <remote_git_url>`.", err=True)
+        typer.echo("No projects initialized. Run `stello install <project_name> <remote_git_url>`.", err=True)
         return
     for info in infos:
         # TODO: append " (update available)" when the local HEAD is behind the remote tip.

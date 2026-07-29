@@ -73,16 +73,20 @@ branches and tags should be supported, for things like `beta`, semantic versioni
 Stello should support the following commands. There is no active project, so every command that acts on a
 project names it (or, for `update`, uses `--all`).
 
-#### `stello init <project_name> <remote_git_url>`
+#### `stello install <project_name> <remote_git_url> [--ref <ref>]`
 
 Should clone the `git` repo to the local stello directory under the given project name.
 
-For example, `stello init model git@github.com:my-org/my-model.git` should clone the given `git` project into
-`~/.stello/projects/model`.
+For example, `stello install model git@github.com:my-org/my-model.git` should clone the given `git` project into
+`~/.stello/projects/model`, checking out the remote's default branch (or the branch, tag, or commit given by
+`--ref`). Project names must be unique: if a project with the given name already exists, install should error
+rather than overwrite it. Re-cloning the same remote under a different project name is allowed.
 
-Init should clone the remote's `main` branch explicitly and fail if the remote has no `main` branch. Project
-names must be unique: if a project with the given name already exists, init should error rather than overwrite
-it. Re-cloning the same remote under a different project name is allowed.
+#### `stello remove <project_name>`
+
+Should delete an initialized project's local clone from `~/.stello/projects`. Because this is destructive and
+irreversible locally (though the project can be re-installed from its remote), it should confirm before deleting
+unless `--yes`/`-y` is passed. Removing a project that isn't initialized is an error.
 
 #### `stello projects`
 

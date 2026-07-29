@@ -62,3 +62,15 @@ def require_project(name: str) -> Path:
         hint = f" Available projects: {', '.join(available)}." if available else ""
         raise ProjectNotFoundError(f"No initialized project named {name!r}.{hint}")
     return project_path(name)
+
+
+def remove_project(name: str) -> Path:
+    """Delete an initialized project's directory, returning the path removed.
+
+    The name is validated first so a traversal-style name (``../foo``) can't point
+    ``rmtree`` outside the projects dir; then existence is required.
+    """
+    validate_name(name, kind="project")
+    path = require_project(name)
+    shutil.rmtree(path)
+    return path

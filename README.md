@@ -33,7 +33,8 @@ stello
 │ --help             Show this message and exit.                                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ init      Clone a remote git repo as a new project.                                                  │
+│ install   Clone a remote git repo and install it as a new project.                                   │
+│ remove    Remove an initialized project, deleting its local clone.                                   │
 │ update    Fetch a project (or all projects) and update its checkout.                                 │
 │ run       Run an application from a project via `uv`.                                                │
 │ apps      List every application across all projects, as `<project>/<app>`.                          │
@@ -48,10 +49,10 @@ If the `stello` command isn't found after installing, add uv's bin dir to your P
 uv tool update-shell
 ```
 
-After `stello` is installed, the first step is to init a project:
+After `stello` is installed, the first step is to install a project:
 
 ```bash
-stello init <project> <git_remote_url|local_git_directory> [--ref <branch|tag|commit>]
+stello install <project> <git_remote_url|local_git_directory> [--ref <branch|tag|commit>]
 ```
 
 The project simply needs a `stello.yaml` file at its root, which describes one or more applications:
@@ -93,7 +94,7 @@ To pick up updates, as authors push to the underlying project repo, simply run u
 stello update <project>
 ```
 
-We recommend starting by initializing the `stello` repo itself, which contains two control planes.
+We recommend starting by installing the `stello` repo itself, which contains two control planes.
 
 ### Run Stello Control Planes on Stello
 
@@ -104,11 +105,12 @@ Stello has two control planes:
 Both browse your projects and list/launch their apps. Both are stello apps, declared in this repo's `stello.yaml` file, so
 you can either stick to the super-light CLI, or run one (or both) of the control planes with ease.
 
-The terminal TUI also manages projects' git state with single keys: `u` updates the highlighted project, `i` inits a new
-one from a remote URL (with an optional ref), and `r` lists a project's branches and tags to switch between them.
+The terminal TUI also manages projects with single keys: `u` updates the highlighted project, `i` installs a new one from
+a remote URL (with an optional ref), `r` removes the highlighted project, and `f` lists its branches and tags to switch
+between them.
 
 ```bash
-stello init stello https://github.com/nikovacevic/stello.git
+stello install stello https://github.com/nikovacevic/stello.git
 stello run stello/terminal
 ```
 
@@ -130,6 +132,7 @@ stello refs stello                 # list a project's branches and tags
 stello update stello               # fetch and update one project (stays on its ref)
 stello update stello --ref v1.2.0  # switch a project to a branch, tag, or commit
 stello update --all                # ...update every project
+stello remove stello               # delete a project's local clone
 ```
 
 ## Development

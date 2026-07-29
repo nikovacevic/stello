@@ -43,6 +43,12 @@ def test_add_project_and_list(make_origin):
     assert only.name == "model"
 
 
+def test_remove_project(make_origin):
+    core.add_project("model", str(make_origin(manifest=MANIFEST)))
+    core.remove_project("model")
+    assert core.list_projects() == []
+
+
 def test_apps_for_and_find_app(make_origin):
     core.add_project("model", str(make_origin(manifest=MANIFEST)))
     assert [a.name for a in core.apps_for("model")] == ["hello"]
