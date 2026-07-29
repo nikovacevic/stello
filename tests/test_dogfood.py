@@ -6,6 +6,8 @@ test suite and protect the wiring that lets `stello run dashboard` work.
 
 from pathlib import Path
 
+import pytest
+
 from stello.manifest import find_application, load_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -13,10 +15,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_repo_root_manifest_is_valid():
     manifest = load_manifest(REPO_ROOT)
-    assert find_application(manifest, "dashboard") is not None
+    assert find_application(manifest, "tui") is not None
+    assert find_application(manifest, "webui") is not None
 
 
-def test_dashboard_script_exists():
-    app = find_application(load_manifest(REPO_ROOT), "dashboard")
+@pytest.mark.parametrize("name", ["tui", "webui"])
+def test_app_paths_exist(name):
+    app = find_application(load_manifest(REPO_ROOT), name)
     assert app.resolved_script(REPO_ROOT).is_file()
     assert app.resolved_dir(REPO_ROOT).is_dir()

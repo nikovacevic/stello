@@ -1,9 +1,10 @@
-"""Stello Dashboard — a Textual control panel for a stello project.
+"""Stello TUI — a Textual control panel for a stello project.
 
 This app *is* a stello application: it lives in a stello project, and when run it
 introspects that same project's ``stello.yaml`` (reusing stello's own parser), lists the
-applications inside it, and offers dummy controls to "run" them. Nothing is actually
-executed — the Run button just composes and shows the command stello would run.
+applications inside it, and launches them. The Run button actually starts the selected
+app (via ``uv run``, detached), composing its args from the on-screen controls — so you
+can, for example, launch the sibling ``webui`` app straight from here.
 
 It receives its own declared args (``--theme``, ``--compact``) from stello, which is how
 stello hands declared args to any application.
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import shlex
+import subprocess
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -23,8 +25,9 @@ from stello.manifest import load_manifest
 from stello.models import Application, ArgType
 from stello.run import resolve_args
 
-# apps/dashboard/main.py -> <repo root>
+# apps/tui/main.py -> <repo root>
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SELF_SCRIPT = Path(__file__).resolve()
 
 
 def _args_summary(app: Application) -> str:
@@ -33,7 +36,7 @@ def _args_summary(app: Application) -> str:
     return ", ".join(f"{a.name}:{a.type.value}={a.default}" for a in app.args)
 
 
-class DashboardApp(App):
+class StelloTUI(App):
     """A control panel for the stello project this app lives in."""
 
     CSS = """
@@ -157,18 +160,32 @@ class DashboardApp(App):
             output.write_line(f"! {exc}")
             return
         cmd = ["uv", "run", "--directory", str(app.resolved_dir(REPO_ROOT)), app.script, *argv]
-        pretty = " ".join(shlex.quote(part) for part in cmd)
-        output.write_line(f"$ {pretty}")
-        output.write_line(f"  (dummy) launching {app.name}…")
-        output.write_line("  (dummy) exited 0")
+        output.write_line(f"$ {' '.join(shlex.quote(part) for part in cmd)}")
+
+        if app.resolved_script(REPO_ROOT) == SELF_SCRIPT:
+            output.write_line("  (skipped) refusing to launch the TUI from itself")
+            return
+        try:
+            # Detached so the child (e.g. webui's server) outlives this event and
+            # doesn't fight the TUI for the terminal.
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as exc:
+            output.write_line(f"  ! failed to launch: {exc}")
+            return
+        output.write_line(f"  launched {app.name} (pid {proc.pid})")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Stello project dashboard.")
+    parser = argparse.ArgumentParser(description="Stello project TUI.")
     parser.add_argument("--theme", default="dark", help="dark or light")
     parser.add_argument("--compact", action="store_true", help="denser table")
     args = parser.parse_args()
-    DashboardApp(theme_name=args.theme, compact=args.compact).run()
+    StelloTUI(theme_name=args.theme, compact=args.compact).run()
 
 
 if __name__ == "__main__":

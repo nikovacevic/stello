@@ -1,5 +1,5 @@
 [project]
-name = "stello-dashboard"
+name = "stello-tui"
 version = "0.1.0"
 description = "A Textual control panel for a stello project — stello's own dogfood app."
 requires-python = ">=3.11"
