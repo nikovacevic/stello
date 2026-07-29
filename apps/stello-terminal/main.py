@@ -4,12 +4,18 @@ This is one of stello's own applications: the ``terminal`` app in the repo's ``s
 run like any other project's app with ``stello run stello/terminal``. It's a thin view over
 stello's own library, which it lists as a dependency, and it:
 
-- browses the initialized projects under ``~/.stello/projects`` (left pane) — projects are
-  just namespaces here, so browsing is purely non-destructive,
+- browses the initialized projects under ``~/.stello/projects`` (left pane), each shown with
+  the git ref it's on as ``name [ref]``,
 - lists and launches the applications in whichever project you're browsing (middle pane).
 
 The Run button launches the selected app as a supervised child (via ``core.launch_supervised``)
 and streams its output into the log panel, composing its args from the on-screen controls.
+
+It also manages projects' git state, mirroring the ``stello`` CLI: ``u`` updates the
+highlighted project (fetch, then advance its current ref), ``i`` opens a dialog to init a new
+project from a remote URL (with an optional ref), and ``r`` lists a project's branches and
+tags so you can switch to one. These git calls run on worker threads so the UI stays
+responsive during a fetch or clone.
 
 It receives its own declared args (``--theme``, ``--compact``) from stello, which is how
 stello hands declared args to any application.
@@ -21,9 +27,14 @@ import argparse
 import shlex
 from pathlib import Path
 
+from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, Label, Log, Static
+from textual.screen import ModalScreen
+from textual.widgets import (
+    Button, Checkbox, DataTable, Footer, Header, Input, Label, Log, OptionList, Static,
+)
+from textual.widgets.option_list import Option
 
 from stello import core
 from stello.models import Application, ArgType
@@ -35,6 +46,146 @@ def _args_summary(app: Application) -> str:
     if not app.args:
         return "(no args)"
     return ", ".join(f"{a.name}:{a.type.value}={a.default}" for a in app.args)
+
+
+class InitScreen(ModalScreen[tuple[str, str, str | None] | None]):
+    """Centered dialog to initialize a project: name, git remote URL, and an optional ref.
+
+    Dismisses with ``(name, url, ref_or_None)`` on Create, or ``None`` on Cancel/Escape.
+    """
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    CSS = """
+    InitScreen { align: center middle; }
+    #dialog { width: 64; height: auto; padding: 1 2; border: thick $panel; background: $surface; }
+    #dialog Label.title { text-style: bold; padding-bottom: 1; }
+    #dialog Input { margin-bottom: 1; }
+    #dialog-buttons { height: auto; align: right middle; }
+    #dialog-buttons Button { margin-left: 2; }
+    """
+
+    _FIELDS = ("init-name", "init-url", "init-ref")
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Label("Initialize a project", classes="title")
+            yield Input(placeholder="project name", id="init-name")
+            yield Input(placeholder="git remote URL", id="init-url")
+            yield Input(placeholder="ref — optional, defaults to the remote's default branch", id="init-ref")
+            with Horizontal(id="dialog-buttons"):
+                yield Button("Create", id="create", variant="success")
+                yield Button("Cancel", id="cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#init-name", Input).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "create":
+            self._submit()
+        elif event.button.id == "cancel":
+            self.dismiss(None)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Enter advances through the fields; on the last one it submits.
+        idx = self._FIELDS.index(event.input.id)
+        if idx < len(self._FIELDS) - 1:
+            self.query_one(f"#{self._FIELDS[idx + 1]}", Input).focus()
+        else:
+            self._submit()
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+    def _submit(self) -> None:
+        name = self.query_one("#init-name", Input).value.strip()
+        url = self.query_one("#init-url", Input).value.strip()
+        ref = self.query_one("#init-ref", Input).value.strip()
+        if not name or not url:
+            self.app.notify("Name and git remote URL are required.", severity="warning")
+            return
+        self.dismiss((name, url, ref or None))
+
+
+class RefsScreen(ModalScreen[str | None]):
+    """Centered dialog listing a project's branches and tags; ENTER switches to one.
+
+    The current ref is marked with ``*`` and pre-highlighted. Refs are read from the remote
+    (``core.list_refs`` → ``git ls-remote``) in a worker, so the dialog opens on a brief
+    "loading" state rather than blocking. Dismisses with the chosen ref, or ``None``.
+    """
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    CSS = """
+    RefsScreen { align: center middle; }
+    #dialog { width: 56; height: auto; max-height: 80%; padding: 1 2; border: thick $panel; background: $surface; }
+    #dialog Label.title { text-style: bold; padding-bottom: 1; }
+    #dialog Label.hint { color: $text-muted; padding-top: 1; }
+    #refs { height: auto; max-height: 20; }
+    """
+
+    def __init__(self, project: str) -> None:
+        super().__init__()
+        self.project = project
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Label(f"Refs · {self.project}", classes="title")
+            yield OptionList(Option("loading refs …", disabled=True), id="refs")
+            yield Label("↑/↓ to navigate · ENTER to switch · Esc to cancel", classes="hint")
+
+    def on_mount(self) -> None:
+        self._load()
+
+    @work(thread=True)
+    def _load(self) -> None:
+        """Fetch the ref list off the UI thread (ls-remote hits the network)."""
+        try:
+            listing = core.list_refs(self.project)
+            self.app.call_from_thread(self._populate, listing, None)
+        except Exception as exc:
+            self.app.call_from_thread(self._populate, None, str(exc))
+
+    def _populate(self, listing: "core.RefListing | None", error: str | None) -> None:
+        option_list = self.query_one("#refs", OptionList)
+        option_list.clear_options()
+        if error is not None:
+            option_list.add_option(Option(f"! {error}", disabled=True))
+            return
+        assert listing is not None
+        if not listing.branches and not listing.tags:
+            option_list.add_option(Option("(no refs found)", disabled=True))
+            return
+
+        highlight: int | None = None
+        index = 0
+
+        def add_group(title: str, refs: list[str]) -> None:
+            nonlocal index, highlight
+            if not refs:
+                return
+            option_list.add_option(Option(title, disabled=True))  # section header
+            index += 1
+            for ref in refs:
+                mark = "* " if ref == listing.current else "  "
+                option_list.add_option(Option(f"{mark}{ref}", id=ref))
+                if ref == listing.current:
+                    highlight = index
+                index += 1
+
+        add_group("Branches", listing.branches)
+        add_group("Tags", listing.tags)
+        if highlight is not None:
+            option_list.highlighted = highlight
+        option_list.focus()
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option_id:
+            self.dismiss(event.option_id)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 class StelloTUI(App):
@@ -56,6 +207,9 @@ class StelloTUI(App):
     """
 
     BINDINGS = [
+        ("u", "update_project", "Update"),
+        ("i", "init_project", "Init"),
+        ("r", "show_refs", "Refs"),
         ("q", "quit", "Quit"),
     ]
 
@@ -63,7 +217,7 @@ class StelloTUI(App):
         super().__init__()
         self.theme_name = theme_name
         self.compact = compact
-        self.project_names: list[str] = [p.name for p in core.list_projects()]
+        self.projects: list[core.ProjectInfo] = []
         self.current_project: str | None = None
         self.current_project_path: Path | None = None
         self.apps: list[Application] = []
@@ -105,18 +259,10 @@ class StelloTUI(App):
         else:
             apps_table.add_columns("app", "dir", "script", "args")
 
-        if not self.project_names:
-            self.sub_title = "no initialized projects"
-            self.query_one("#detail", Static).update(
-                "No projects initialized. Run `stello init <project_name> <remote_git_url>`."
-            )
-            return
-
-        self._populate_projects()
-        initial = self.project_names[0]
-        self._load_project(initial)
-        self._move_cursor("#projects", 0)
+        # Stream supervised-app output regardless of whether a project exists yet, so the
+        # panel keeps working after a project is initialized at runtime.
         self.set_interval(0.5, self._stream_logs)
+        self._refresh_projects()
 
     # --- data loading -----------------------------------------------------
 
@@ -147,11 +293,40 @@ class StelloTUI(App):
                 self.load_error or "No applications defined in this project's stello.yaml."
             )
 
-    def _populate_projects(self) -> None:
+    def _refresh_projects(self, select: str | None = None) -> None:
+        """Reload the project list (names + current ref) and show one of them.
+
+        Called on mount and after any update/init/switch, so the ``[ref]`` shown next to each
+        project stays current. Selects ``select`` if given, else keeps the current project,
+        else the first.
+        """
+        self.projects = core.list_projects()
         table = self.query_one("#projects", DataTable)
         table.clear()
-        for name in self.project_names:
-            table.add_row(name, key=name)
+        for info in self.projects:
+            table.add_row(f"{info.name} [{info.ref}]", key=info.name)
+
+        if not self.projects:
+            self.current_project = None
+            self.current_project_path = None
+            self.apps = []
+            self._populate_apps()
+            self.query_one("#arg-controls", VerticalScroll).remove_children()
+            self.sub_title = "no initialized projects"
+            self.query_one("#detail", Static).update(
+                "No projects initialized. Press `i` to initialize one."
+            )
+            return
+
+        names = [info.name for info in self.projects]
+        target = select if select in names else self.current_project
+        if target not in names:
+            target = names[0]
+        # Reload directly (not just via the cursor move) so a same-project ref switch still
+        # refreshes the apps/detail; the highlight event that _move_cursor triggers is then a
+        # no-op because current_project already matches.
+        self._load_project(target)
+        self._move_cursor("#projects", names.index(target))
 
     def _populate_apps(self) -> None:
         table = self.query_one("#apps", DataTable)
@@ -236,6 +411,94 @@ class StelloTUI(App):
             self._run_selected()
         elif event.button.id == "stop":
             self._stop_selected()
+
+    # --- update -----------------------------------------------------------
+
+    def action_update_project(self) -> None:
+        """`u` — fetch the highlighted project and advance its current ref."""
+        name = self.current_project
+        if not name:
+            self._notify("No project highlighted to update.")
+            return
+        self._notify(f"Updating {name!r} …")
+        self.query_one("#output", Log).write_line(f"· updating {name!r} …")
+        self._run_update(name, None)
+
+    @work(thread=True)
+    def _run_update(self, name: str, ref: str | None) -> None:
+        """Run the (blocking) git fetch/checkout off the UI thread."""
+        try:
+            core.update_project(name, ref=ref)
+            self.call_from_thread(self._on_update_done, name, None)
+        except Exception as exc:  # surface git/manifest failures without crashing the TUI
+            self.call_from_thread(self._on_update_done, name, str(exc))
+
+    def _on_update_done(self, name: str, error: str | None) -> None:
+        output = self.query_one("#output", Log)
+        if error:
+            output.write_line(f"  ! update failed: {error}")
+            self._notify(f"Update failed: {error}")
+            return
+        current = core.current_ref(name)
+        output.write_line(f"  updated {name!r} ({current})")
+        self._notify(f"Updated {name!r} ({current}).")
+        self._refresh_projects(select=name)
+
+    # --- init -------------------------------------------------------------
+
+    def action_init_project(self) -> None:
+        """`i` — open the init dialog, then clone the given remote as a new project."""
+        self.push_screen(InitScreen(), self._on_init_result)
+
+    def _on_init_result(self, result: tuple[str, str, str | None] | None) -> None:
+        if not result:
+            return
+        name, url, ref = result
+        self._notify(f"Initializing {name!r} …")
+        at_ref = f" at {ref}" if ref else ""
+        self.query_one("#output", Log).write_line(f"· initializing {name!r} from {url}{at_ref} …")
+        self._run_init(name, url, ref)
+
+    @work(thread=True)
+    def _run_init(self, name: str, url: str, ref: str | None) -> None:
+        """Run the (blocking) clone/checkout off the UI thread."""
+        try:
+            core.add_project(name, url, ref=ref)
+            self.call_from_thread(self._on_init_done, name, None)
+        except Exception as exc:  # bad name/url/ref — core cleans up a partial checkout
+            self.call_from_thread(self._on_init_done, name, str(exc))
+
+    def _on_init_done(self, name: str, error: str | None) -> None:
+        output = self.query_one("#output", Log)
+        if error:
+            output.write_line(f"  ! init failed: {error}")
+            self._notify(f"Init failed: {error}")
+            return
+        current = core.current_ref(name)
+        output.write_line(f"  initialized {name!r} ({current})")
+        self._notify(f"Initialized {name!r} ({current}).")
+        self._refresh_projects(select=name)
+
+    # --- refs -------------------------------------------------------------
+
+    def action_show_refs(self) -> None:
+        """`r` — pick a branch/tag for the highlighted project and switch to it."""
+        name = self.current_project
+        if not name:
+            self._notify("No project highlighted.")
+            return
+        self.push_screen(RefsScreen(name), self._on_ref_chosen)
+
+    def _on_ref_chosen(self, ref: str | None) -> None:
+        name = self.current_project
+        if not ref or not name:
+            return
+        if ref == core.current_ref(name):
+            self._notify(f"Already on {ref}.")
+            return
+        self._notify(f"Switching {name!r} to {ref} …")
+        self.query_one("#output", Log).write_line(f"· switching {name!r} to {ref} …")
+        self._run_update(name, ref)
 
     def _run_selected(self) -> None:
         if self.selected is None or self.current_project is None:

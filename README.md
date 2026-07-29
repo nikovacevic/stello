@@ -99,6 +99,9 @@ Stello has two control planes:
 Both browse your projects and list/launch their apps. Both are stello apps, declared in this repo's `stello.yaml` file, so
 you can either stick to the super-light CLI, or run one (or both) of the control planes with ease.
 
+The terminal TUI also manages projects' git state with single keys: `u` updates the highlighted project, `i` inits a new
+one from a remote URL (with an optional ref), and `r` lists a project's branches and tags to switch between them.
+
 ```bash
 stello init stello https://github.com/nikovacevic/stello.git
 stello run stello/terminal
