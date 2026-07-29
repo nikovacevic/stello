@@ -15,3 +15,8 @@ Planned work, not yet started. Move items into the code (and delete them here) a
   needs to vibe-code, share, and run applications — how they initialize their project(s), how
   they develop apps within them (feature branches), how they version them (tags), how they run
   them, and how they update them.
+
+- **Add `stello tidy` command to clean up internal git repo state** - as projects get updated
+  to different refs, it's possible that we will end up with messy git state. Investigate whether
+  or not that is the case. If it is, make a command that cleans up all the hanging refs, leaving
+  only the HEAD state.
