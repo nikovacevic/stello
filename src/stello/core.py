@@ -29,10 +29,20 @@ from stello.models import Application
 
 @dataclass(frozen=True)
 class ProjectInfo:
-    """An initialized project and where it lives on disk."""
+    """An initialized project, where it lives on disk, and the ref it's on."""
 
     name: str
     path: Path
+    ref: str
+
+
+@dataclass(frozen=True)
+class RefListing:
+    """The refs available for a project, and the one it's currently on."""
+
+    current: str
+    branches: list[str]
+    tags: list[str]
 
 
 # --- projects -------------------------------------------------------------
@@ -40,8 +50,9 @@ class ProjectInfo:
 def list_projects() -> list[ProjectInfo]:
     """All initialized projects, sorted by name."""
     return [
-        ProjectInfo(name, projects.project_path(name))
+        ProjectInfo(name, path, git.current_ref(path))
         for name in projects.list_projects()
+        for path in [projects.project_path(name)]
     ]
 
 
@@ -50,10 +61,22 @@ def project_path(name: str) -> Path:
     return projects.require_project(name)
 
 
-def add_project(name: str, remote_url: str) -> ProjectInfo:
-    """Clone ``remote_url`` as project ``name``."""
-    path = projects.add_project(name, remote_url)
-    return ProjectInfo(name, path)
+def add_project(name: str, remote_url: str, ref: str | None = None) -> ProjectInfo:
+    """Clone ``remote_url`` as project ``name`` (on ``ref`` if given, else the default branch)."""
+    path = projects.add_project(name, remote_url, ref=ref)
+    return ProjectInfo(name, path, git.current_ref(path))
+
+
+def current_ref(name: str) -> str:
+    """The ref project ``name`` is currently on (branch, tag, or short commit)."""
+    return git.current_ref(projects.require_project(name))
+
+
+def list_refs(name: str) -> RefListing:
+    """The branches and tags available for ``name``, plus the ref it's on."""
+    path = projects.require_project(name)
+    branches, tags = git.list_refs(path)
+    return RefListing(git.current_ref(path), branches, tags)
 
 
 # --- applications ---------------------------------------------------------
@@ -194,14 +217,26 @@ def launch_supervised(project: str, app_name: str, overrides: dict[str, str]) ->
 
 # --- updates --------------------------------------------------------------
 
-def update_project(name: str) -> None:
-    """Update one project to the latest ``origin/main``."""
-    git.fetch_and_reset(projects.require_project(name))
+def update_project(name: str, ref: str | None = None) -> None:
+    """Update one project.
+
+    Always fetches first. With ``ref``, switches the checkout to that branch, tag, or
+    commit; without it, advances the current ref (a tracked branch moves to its remote tip;
+    a detached pin stays put).
+    """
+    path = projects.require_project(name)
+    git.fetch_all(path)
+    if ref is not None:
+        git.checkout_ref(path, ref)
+    else:
+        git.advance_current(path)
 
 
 def update_all() -> list[str]:
-    """Update every initialized project; return the names updated (in order)."""
+    """Update every initialized project to its current ref; return the names (in order)."""
     names = projects.list_projects()
     for name in names:
-        git.fetch_and_reset(projects.project_path(name))
+        path = projects.project_path(name)
+        git.fetch_all(path)
+        git.advance_current(path)
     return names

@@ -36,11 +36,15 @@ def main(
 @app.command()
 def init(
     project_name: Annotated[str, typer.Argument(help="Name for the new local project.")],
-    remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone (must have a `main` branch).")],
+    remote_git_url: Annotated[str, typer.Argument(help="Remote git URL to clone.")],
+    ref: Annotated[
+        Optional[str],
+        typer.Option("--ref", help="Start on this branch, tag, or commit instead of the default branch."),
+    ] = None,
 ) -> None:
     """Clone a remote git repo as a new project."""
-    core.add_project(project_name, remote_git_url)
-    typer.echo(f"Initialized project {project_name!r}.")
+    info = core.add_project(project_name, remote_git_url, ref=ref)
+    typer.echo(f"Initialized project {project_name!r} ({info.ref}).")
 
 
 @app.command()
@@ -49,11 +53,22 @@ def update(
         Optional[str],
         typer.Argument(help="Project to update."),
     ] = None,
+    ref: Annotated[
+        Optional[str],
+        typer.Option("--ref", help="Switch the project to this branch, tag, or commit."),
+    ] = None,
     all_: Annotated[bool, typer.Option("--all", help="Update every initialized project.")] = False,
 ) -> None:
-    """Pull the latest `main` for a project (or all projects)."""
+    """Fetch a project (or all projects) and update its checkout.
+
+    Without `--ref` a project stays on its current ref: a tracked branch advances to the
+    remote tip; a pinned tag or commit stays put. With `--ref` the project switches to the
+    named branch, tag, or commit.
+    """
     if all_ and project_name:
         raise ArgumentError("Cannot combine --all with a project name.")
+    if all_ and ref is not None:
+        raise ArgumentError("`--ref` updates a single project; drop --all.")
     if not all_ and not project_name:
         raise ArgumentError("Specify a project to update, or pass --all.")
 
@@ -67,8 +82,8 @@ def update(
         return
 
     assert project_name is not None
-    core.update_project(project_name)
-    typer.echo(f"Updated {project_name!r}.")
+    core.update_project(project_name, ref=ref)
+    typer.echo(f"Updated {project_name!r} ({core.current_ref(project_name)}).")
 
 
 @app.command()
@@ -102,13 +117,37 @@ def apps() -> None:
 
 @app.command()
 def projects() -> None:
-    """List initialized projects."""
+    """List initialized projects and the ref each is on."""
     infos = core.list_projects()
     if not infos:
         typer.echo("No projects initialized. Run `stello init <project_name> <remote_git_url>`.", err=True)
         return
     for info in infos:
-        typer.echo(info.name)
+        # TODO: append " (update available)" when the local HEAD is behind the remote tip.
+        typer.echo(f"{info.name} [{info.ref}]")
+
+
+@app.command()
+def refs(
+    project_name: Annotated[str, typer.Argument(help="Project whose refs to list.")],
+) -> None:
+    """List the branches and tags available for a project, marking the current one."""
+    listing = core.list_refs(project_name)
+
+    def _line(name: str) -> str:
+        return f"* {name}" if name == listing.current else f"  {name}"
+
+    if not listing.branches and not listing.tags:
+        typer.echo(f"No branches or tags found for {project_name!r}.", err=True)
+        return
+    if listing.branches:
+        typer.echo("Branches:")
+        for name in listing.branches:
+            typer.echo(_line(name))
+    if listing.tags:
+        typer.echo("Tags:")
+        for name in listing.tags:
+            typer.echo(_line(name))
 
 
 def run_cli() -> None:

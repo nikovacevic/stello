@@ -34,10 +34,11 @@ stello
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────╮
 │ init      Clone a remote git repo as a new project.                                                  │
-│ update    Pull the latest `main` for a project (or all projects).                                    │
+│ update    Fetch a project (or all projects) and update its checkout.                                 │
 │ run       Run an application from a project via `uv`.                                                │
 │ apps      List every application across all projects, as `<project>/<app>`.                          │
-│ projects  List initialized projects.                                                                 │
+│ projects  List initialized projects and the ref each is on.                                          │
+│ refs      List the branches and tags available for a project, marking the current one.               │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -50,7 +51,7 @@ uv tool update-shell
 After `stello` is installed, the first step is to init a project:
 
 ```bash
-stello init <project> <git_remote_url|local_git_directory>
+stello init <project> <git_remote_url|local_git_directory> [--ref <branch|tag|commit>]
 ```
 
 The project simply needs a `stello.yaml` file at its root, which describes one or more applications:
@@ -114,10 +115,12 @@ stello run stello/dashboard
 Enjoy the control planes. But as a reminder, everything the panels do (and more) is available directly on the CLI:
 
 ```bash
-stello projects            # list initialized projects
-stello apps                # list every app, as <project>/<app>
-stello update stello       # pull the latest main for one project
-stello update --all        # ...or for every project
+stello projects                    # list projects and the ref each is on
+stello apps                        # list every app, as <project>/<app>
+stello refs stello                 # list a project's branches and tags
+stello update stello               # fetch and update one project (stays on its ref)
+stello update stello --ref v1.2.0  # switch a project to a branch, tag, or commit
+stello update --all                # ...update every project
 ```
 
 ## Development

@@ -1,7 +1,12 @@
 import pytest
 
-from stello import paths, projects
-from stello.errors import InvalidNameError, ProjectExistsError, ProjectNotFoundError
+from stello import git, paths, projects
+from stello.errors import (
+    InvalidNameError,
+    ProjectExistsError,
+    ProjectNotFoundError,
+    RefNotFoundError,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -13,6 +18,18 @@ def test_add_and_list(make_origin):
     projects.add_project("model", str(make_origin()))
     assert projects.is_project("model")
     assert projects.list_projects() == ["model"]
+
+
+def test_add_at_ref(make_origin):
+    projects.add_project("model", str(make_origin(branch="beta", tag="v1.0.0")), ref="beta")
+    assert git.current_ref(projects.project_path("model")) == "beta"
+
+
+def test_add_at_bad_ref_leaves_nothing_behind(make_origin):
+    with pytest.raises(RefNotFoundError):
+        projects.add_project("model", str(make_origin()), ref="nope")
+    assert not projects.is_project("model")
+    assert not projects.project_path("model").exists()
 
 
 def test_duplicate_name_blocked(make_origin):

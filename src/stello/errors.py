@@ -38,6 +38,10 @@ class ProjectNotFoundError(StelloError):
     """The requested project is not an initialized project."""
 
 
+class RefNotFoundError(StelloError):
+    """The requested git ref (branch, tag, or commit) does not exist in the project."""
+
+
 class ApplicationNotFoundError(StelloError):
     """The requested application is not declared in the project's stello.yaml."""
 

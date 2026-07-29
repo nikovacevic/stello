@@ -6,10 +6,11 @@ validated before they touch the filesystem.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from stello import git, paths
-from stello.errors import ProjectExistsError, ProjectNotFoundError
+from stello.errors import ProjectExistsError, ProjectNotFoundError, StelloError
 from stello.naming import validate_name
 
 
@@ -31,18 +32,26 @@ def list_projects() -> list[str]:
     return sorted(p.name for p in root.iterdir() if git.is_git_repo(p))
 
 
-def add_project(name: str, remote_url: str) -> Path:
+def add_project(name: str, remote_url: str, ref: str | None = None) -> Path:
     """Clone ``remote_url`` as a new project ``name``.
 
-    Duplicate project names are rejected. Re-cloning the same remote under a different name
-    is allowed (nothing here keys on the URL).
+    Starts on the remote's default branch, or on ``ref`` (a branch, tag, or commit) when
+    given. Duplicate project names are rejected. Re-cloning the same remote under a
+    different name is allowed (nothing here keys on the URL).
     """
     validate_name(name, kind="project")
     dest = project_path(name)
     if dest.exists():
         raise ProjectExistsError(f"A project named {name!r} already exists at {dest}.")
     paths.ensure_dirs()
-    git.clone_main(remote_url, dest)
+    git.clone(remote_url, dest)
+    if ref is not None:
+        try:
+            git.checkout_ref(dest, ref)
+        except StelloError:
+            # Don't leave a half-initialized project on the default branch behind.
+            shutil.rmtree(dest, ignore_errors=True)
+            raise
     return dest
 
 

@@ -131,3 +131,32 @@ def test_update_all_returns_names(make_origin):
     core.add_project("a", str(make_origin()))
     core.add_project("b", str(make_origin(name="o2")))
     assert core.update_all() == ["a", "b"]
+
+
+def test_list_projects_carries_ref(make_origin):
+    core.add_project("model", str(make_origin()))
+    (only,) = core.list_projects()
+    assert only.ref == "main"
+
+
+def test_update_project_switches_to_ref(make_origin):
+    core.add_project("model", str(make_origin(branch="beta", tag="v1.0.0")))
+    assert core.current_ref("model") == "main"
+
+    core.update_project("model", ref="beta")
+    assert core.current_ref("model") == "beta"
+
+    core.update_project("model", ref="v1.0.0")
+    assert core.current_ref("model") == "v1.0.0"
+
+    # Plain update leaves a detached pin (the tag) in place.
+    core.update_project("model")
+    assert core.current_ref("model") == "v1.0.0"
+
+
+def test_list_refs_reports_branches_tags_and_current(make_origin):
+    core.add_project("model", str(make_origin(branch="beta", tag="v1.0.0")))
+    listing = core.list_refs("model")
+    assert listing.current == "main"
+    assert listing.branches == ["beta", "main"]
+    assert listing.tags == ["v1.0.0"]

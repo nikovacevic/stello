@@ -25,10 +25,17 @@ each, **applications** (runnable Python apps declared in `stello.yaml`).
 - **No global state** — stello is stateless. There is no active-project pointer and no
   `config.yaml`; every command names the project it acts on (`<project>/<app>`). The
   directory-layout logic lives in `stello.paths` (home dir, `projects/`, `STELLO_HOME`).
-- **Project git repo** — cloned from a remote the user supplies. Today it works from a
-  single branch, `main`, only. Branches and tags (e.g. `beta`, semantic versions) are a
-  future concern — don't build for them yet, but don't design in a way that forecloses
-  them.
+- **Project git repo** — cloned from a remote the user supplies (checking out the remote's
+  default branch, or `stello init --ref <ref>` to start elsewhere; no particular branch
+  name is required). A project tracks a single **ref** — a branch, tag, or commit — held
+  as git's own HEAD, so stello keeps no separate record of it:
+  - **attached HEAD (a branch)** is *tracked* — a plain `stello update` advances it to
+    the remote tip.
+  - **detached HEAD (a tag or commit)** is a *pin* — a plain `stello update` still fetches
+    but leaves the checkout where it is.
+
+  `stello update <project> --ref <ref>` switches to any branch, tag, or commit; a switched
+  branch is attached, a tag/commit is detached. All the ref logic lives in `stello.git`.
 - **`stello.yaml`** — MUST exist at the root of every project repo. It lists the
   applications in that project. Each application has a `name`, a `dir` (the uv project
   root, relative to the repo root — sets the working dir and where uv resolves deps), a
@@ -59,12 +66,14 @@ names it, and applications are addressed as `<project>/<app>`.
 
 | Command | Behavior |
 | --- | --- |
-| `stello init <project_name> <remote_git_url>` | Clone the remote's `main` into `~/.stello/projects/<project_name>`. |
+| `stello init <project_name> <remote_git_url> [--ref <ref>]` | Clone the remote into `~/.stello/projects/<project_name>`, checking out its default branch (or `--ref`). |
 | `stello apps` | List every application across all projects, one per line as `<project>/<app>`; skip projects with a bad manifest. |
 | `stello run <project>/<app> [--set NAME=VALUE ...]` | Look up `<app>` in `<project>`'s `stello.yaml` and `uv run` it from its `dir`, with declared-arg defaults overridden by `--set`. A ref without exactly one `/` is an error. |
-| `stello projects` | List initialized projects (dirs under `~/.stello/projects` that are valid git repos). |
-| `stello update <project_name>` | Update the named project to `origin/main` (`git fetch` + `reset --hard`). |
-| `stello update --all` | Same, for every initialized project. |
+| `stello projects` | List initialized projects, each annotated with the ref it's on: `<project> [<ref>]`. |
+| `stello refs <project_name>` | List the branches and tags available on the project's remote (`git ls-remote`), marking the current one with `*`. |
+| `stello update <project_name>` | Fetch, then advance the current ref (a tracked branch to its remote tip; a detached pin stays put). |
+| `stello update <project_name> --ref <ref>` | Fetch, then switch the checkout to `<ref>` (a branch, tag, or commit), discarding local drift. |
+| `stello update --all` | Fetch and advance the current ref of every initialized project (no `--ref`). |
 
 The control panels are **ordinary apps, not commands**: run them with `stello run
 stello/terminal` and `stello run stello/dashboard` after `stello init`-ing the stello repo.
