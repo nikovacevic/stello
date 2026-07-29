@@ -27,20 +27,20 @@ uv tool update-shell
 
 ### Try it: run stello with stello
 
-Stello is itself a stello project — its repo root declares two applications: `tui`, a
+Stello is itself a stello project — its repo root declares two applications: `stello`, a
 [Textual](https://textual.textualize.io/) control panel that introspects the project it
 lives in, and `webui`, a minimal browser UI. Initialize it as a project, then run the TUI:
 
 ```bash
 stello init stello https://github.com/nikovacevic/stello.git
-stello run tui
+stello run stello
 ```
 
-From the TUI, select an app and press **Run** to launch it — pick `webui` to open the web
+From the Stello TUI, select an app and press **Run** to launch it — pick `webui` to open the web
 app in your browser. You can also run either app directly, passing args with `--set`:
 
 ```bash
-stello run tui --set theme=light
+stello run stello --set theme=light
 stello run webui --set name=you --set port=9000
 ```
 
@@ -52,7 +52,7 @@ stello apps            # list apps in the active project
 stello update          # pull the latest main for the active project
 ```
 
-The `tui` app reuses stello's own manifest parser, and its uv project depends on stello
+The `stello` app reuses stello's own manifest parser, and its uv project depends on stello
 via a `../..` path source — so once cloned into `~/.stello/projects/stello`, it builds
 stello from that clone, not from your dev checkout.
 
