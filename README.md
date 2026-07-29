@@ -114,25 +114,26 @@ stello install stello https://github.com/nikovacevic/stello.git
 stello run stello/terminal
 ```
 
-<img alt="stello-control-panel" src="https://github.com/user-attachments/assets/357dd616-4aa8-454e-be18-a43e020146c0" />
+<img width="1628" height="822" alt="stello-terminal" src="https://github.com/user-attachments/assets/2674d3ba-f53c-4e6e-a264-622b979e6268" />
 
 ```bash
 stello run stello/dashboard
 ```
 
-<img width="1994" height="1095" alt="Screenshot 2026-07-29 at 12 19 08 AM" src="https://github.com/user-attachments/assets/3268baee-d635-46a5-beaa-df237c7e654f" />
+<img width="1695" height="1109" alt="stello-dashboard" src="https://github.com/user-attachments/assets/f2761cd4-8aae-4241-8358-015d1a8bca9e" />
 
 Enjoy the control planes. But as a reminder, everything the panels do (and more) is available directly on the CLI:
 
 ```bash
-stello projects                    # list projects and the ref each is on
+stello run <project>/<app>         # run an app
 stello apps                        # list every app, as <project>/<app>
-stello describe stello             # describe a project (or an app: <project>/<app>)
-stello refs stello                 # list a project's branches and tags
-stello update stello               # fetch and update one project (stays on its ref)
-stello update stello --ref v1.2.0  # switch a project to a branch, tag, or commit
-stello update --all                # ...update every project
-stello remove stello               # delete a project's local clone
+stello describe <project>/<app>    # describe an app
+
+stello projects                    # list projects and the ref each is on
+stello install <name> <git_url>    # install a new project from a git repo
+stello describe <project>          # describe a project (or an app: <project>/<app>)
+stello update <project>            # fetch and update a project (stays on current ref)
+stello remove <project>            # install a new project from a git repo
 ```
 
 ## Development
