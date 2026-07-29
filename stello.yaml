@@ -16,6 +16,9 @@ applications:
       - name: port
         type: int
         default: 8080
+      - name: theme
+        type: string
+        default: dark
   - name: weather
     dir: ./apps/weather
     script: ./main.py
