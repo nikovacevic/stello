@@ -1,6 +1,6 @@
 [project]
 name = "stello"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Publish, share, and run Python applications locally — no infrastructure to deploy."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,8 +21,15 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+# Version is derived from git tags (e.g. `v0.2.0`) rather than hardcoded, so a tag
+# is the single source of truth. At runtime it's read from installed package metadata
+# (see stello/__init__.py). Between tags, a dev build resolves to something like
+# `0.2.1.dev3+g<sha>`.
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stello"]
