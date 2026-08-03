@@ -1,4 +1,4 @@
-"""Stello — publish, share, and run Python applications locally."""
+"""Stello — build and distribute tools that run locally."""
 
 from importlib.metadata import PackageNotFoundError, version
 

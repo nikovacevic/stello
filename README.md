@@ -148,5 +148,27 @@ The `terminal` and `dashboard` apps reuse stello's own library, and each app's u
 depends on stello via a `../..` path source — so once cloned into `~/.stello/projects/stello`,
 they build stello from that clone, not from your dev checkout.
 
+### Building
+
+Build the sdist and wheel with uv — no virtualenv or extra tooling required:
+
+```bash
+uv build
+```
+
+The version is derived from git tags by `hatch-vcs`, so build from a checkout that has the
+tags present (a shallow clone without them resolves to a `0.0.0`-style dev version).
+
+If you'd rather build without uv — for example on an externally-managed machine (PEP 668)
+where you can't install into the system Python — do it inside a standard virtual environment.
+A `python3 -m venv` already bundles pip, so you only add the `build` frontend:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip build
+python3 -m build
+```
+
 See [`agents/product.md`](agents/product.md) for the product spec and
 [`AGENTS.md`](AGENTS.md) for development guidance.
