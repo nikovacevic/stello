@@ -23,7 +23,7 @@ Trusted Publishing lets CI publish without storing API tokens. Configure it once
 1. **PyPI** → account → *Publishing* → add a publisher (or *pending publisher* for the very
    first release, before the project exists):
    - Project: `stello` · Owner: `nikovacevic` · Repo: `stello`
-   - Workflow: `publish.yml` · Environment: `pypi`
+   - Workflow: `release.yml` · Environment: `pypi`
 2. **TestPyPI** — repeat the same on <https://test.pypi.org> if you rehearse there.
 3. **GitHub** → repo Settings → Environments → create `pypi` (optionally require a reviewer,
    which gates every publish behind a manual approval).
@@ -35,8 +35,9 @@ For the **manual** flow you also need an API token from the relevant index
 
 ## Standard flow — GitHub Actions (recommended)
 
-Pushing a `v*` tag triggers [`.github/workflows/publish.yml`](.github/workflows/publish.yml),
-which builds on a clean runner and publishes to PyPI over OIDC.
+Pushing a `v*` tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml),
+which builds on clean runners and publishes the wheel/sdist to PyPI over OIDC, builds the
+standalone binaries, and attaches them (plus `SHA256SUMS`) to the GitHub Release.
 
 1. Land everything you want in the release on `main` and make sure it's green.
 2. Tag a **clean, committed** commit and push the tag:
@@ -45,8 +46,8 @@ which builds on a clean runner and publishes to PyPI over OIDC.
    git tag -a v0.2.0 -m "Release 0.2.0"
    git push origin v0.2.0
    ```
-3. Watch the **Publish to PyPI** workflow run. If the `pypi` environment requires a
-   reviewer, approve it.
+3. Watch the **Release** workflow run. If the `pypi` environment requires a reviewer,
+   approve it.
 4. [Verify](#verifying-a-release).
 
 That's it — no local build, and the fresh runner is immune to the stale-`dist/` trap below.
@@ -98,12 +99,30 @@ index; this step is about proving upload/download, not a full install.)
 
 ## Verifying a release
 
+Check the PyPI track:
+
 ```bash
 uv tool install stello        # or: pipx install stello
 stello --version              # should print the tag version, e.g. 0.2.0
 ```
 
-Also confirm the project page shows the new version: <https://pypi.org/project/stello/>.
+Check the binary track — run the install script and confirm it fetches the new release,
+verifies the checksum, and reports the tag version:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/nikovacevic/stello/main/install.sh | sh
+~/.stello/bin/stello --version   # should match the tag, e.g. 0.2.0
+```
+
+Pin a specific version if `latest` hasn't propagated yet, and use a throwaway install root
+to avoid disturbing your own:
+
+```bash
+STELLO_HOME=$(mktemp -d) sh -c 'curl -LsSf https://raw.githubusercontent.com/nikovacevic/stello/main/install.sh | sh -s -- --version 0.2.0'
+```
+
+Also confirm the project page shows the new version (<https://pypi.org/project/stello/>) and
+that the GitHub Release has the three binaries plus `SHA256SUMS` attached.
 
 ## Troubleshooting
 

@@ -27,6 +27,9 @@ stello = "stello.cli:run_cli"
 dev = [
     "pytest>=8",
 ]
+build = [
+    "pyinstaller>=6",
+]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

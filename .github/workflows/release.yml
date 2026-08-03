@@ -1,0 +1,114 @@
+name: Release
+
+# Runs on a version tag (e.g. `v0.1.0`). hatch-vcs derives the version from the tag, so the
+# tag is the single source of truth. Two tracks run off it:
+#   - PyPI:    build-dist -> pypi        (wheel + sdist, published over OIDC)
+#   - Binaries: binaries  -> github-release (standalone executables + checksums)
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  # --- PyPI track ---------------------------------------------------------------------
+  build-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # hatch-vcs needs the tag and full history to compute the version.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check the built distributions
+        run: |
+          uvx --from twine twine check dist/*
+          ls -l dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    needs: build-dist
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # OIDC token for PyPI Trusted Publishing — no API token needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # --- Binary track -------------------------------------------------------------------
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            asset: stello-macos-arm64
+          - os: macos-13
+            asset: stello-macos-x86_64
+          - os: ubuntu-22.04 # oldest supported glibc = broadest Linux compatibility
+            asset: stello-linux-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # hatch-vcs needs the tag so the frozen binary reports the right version.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build standalone binary
+        run: uv run --group build pyinstaller packaging/stello.spec --distpath dist/bin --workpath build/pyinstaller --noconfirm
+
+      - name: Name the asset for its target
+        run: mv dist/bin/stello "dist/bin/${{ matrix.asset }}"
+
+      - name: Smoke test
+        run: "dist/bin/${{ matrix.asset }} --version"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/bin/${{ matrix.asset }}
+
+  github-release:
+    needs: binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release and upload assets
+    steps:
+      - name: Collect binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: stello-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum stello-* > SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/stello-*
+            dist/SHA256SUMS
+          generate_release_notes: true
