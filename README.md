@@ -12,12 +12,29 @@ and run applications. Expect rough edges and breaking changes.
 
 ## Getting started
 
-Stello requires [`git`](https://git-scm.com/) and [`uv`](https://docs.astral.sh/uv/) to be
-installed on your PATH. With those in place, install stello using `uv` and `git`:
+### Install
+
+The quickest way — a standalone binary, with no prerequisites:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/nikovacevic/stello/main/install.sh | sh
+```
+
+Already have Python tooling? Install from PyPI instead:
+
+```bash
+uv tool install stello    # or: pipx install stello
+```
+
+Or build the latest straight from source (this route needs `git` and `uv`):
 
 ```bash
 uv tool install git+https://github.com/nikovacevic/stello.git
 ```
+
+> **Runtime tools:** stello installs without them, but **uses [`git`](https://git-scm.com/)
+> and [`uv`](https://docs.astral.sh/uv/) at runtime** — git to fetch projects, uv to run
+> Python apps. The install script flags either one if it's missing from your PATH.
 
 Run `stello` for a list of commands:
 
@@ -43,7 +60,8 @@ stello
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-If the `stello` command isn't found after installing, add uv's bin dir to your PATH, and try again:
+If you installed from PyPI or source and the `stello` command isn't found afterward, add
+uv's bin dir to your PATH and try again (the standalone install script handles this for you):
 
 ```bash
 uv tool update-shell
