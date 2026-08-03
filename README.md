@@ -170,5 +170,7 @@ python3 -m pip install --upgrade pip build
 python3 -m build
 ```
 
+To cut a release and publish to PyPI, see [`RELEASE.md`](RELEASE.md).
+
 See [`agents/product.md`](agents/product.md) for the product spec and
 [`AGENTS.md`](AGENTS.md) for development guidance.

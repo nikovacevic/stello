@@ -91,7 +91,9 @@ update that file too.
 ## Tech stack
 
 - **Language / packaging:** Python, managed with **`uv`**. Stello is itself a uv-managed
-  project and is distributed so it can be run via uv (e.g. `uvx`).
+  project and is distributed so it can be run via uv (e.g. `uvx`). Versioning is tag-driven
+  via **`hatch-vcs`** — a `v*` git tag is the single source of truth, so nothing hardcodes a
+  version. See [`RELEASE.md`](RELEASE.md) for the release and publish process.
 - **CLI framework:** **Typer** — use its type-hint-driven command definitions for the
   `init` / `projects` / `update` / `apps` / `run` commands.
 - **Dependencies:** keep stello's own footprint small. Its only required *external*
