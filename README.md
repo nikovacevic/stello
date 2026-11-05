@@ -7,7 +7,7 @@ apps from a single command line, entirely on the local machine.
 
 ## Status
 
-Very early alpha — but it works! You can install stello, initialize and upgrade projects,
+Early alpha — but it works! You can install stello, initialize and upgrade projects,
 and run applications. Expect rough edges and breaking changes.
 
 ## Getting started
